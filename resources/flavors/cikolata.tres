@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="FlavorData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/flavor_data.gd" id="1_flavor"]
+
+[resource]
+script = ExtResource("1_flavor")
+id = "cikolata"
+flavor_name = "Çikolata"
+color = Color(0.28, 0.16, 0.1, 1)
+score_multiplier = 1.1
+cost = 0.6
+sale_price = 2.5
+unlock_level = 1

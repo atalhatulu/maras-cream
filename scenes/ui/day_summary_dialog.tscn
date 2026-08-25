@@ -1,0 +1,126 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/day_summary_dialog.gd" id="1_summary"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg_dim"]
+bg_color = Color(0.04, 0.05, 0.07, 0.8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.08, 0.1, 0.14, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.85, 0.35, 0.8)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+expand_margin_left = 24.0
+expand_margin_top = 20.0
+expand_margin_right = 24.0
+expand_margin_bottom = 20.0
+shadow_color = Color(0, 0, 0, 0.6)
+shadow_size = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
+bg_color = Color(0.18, 0.55, 0.32, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.9, 0.55, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="DaySummaryDialog" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_summary")
+
+[node name="DimOverlay" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg_dim")
+
+[node name="Card" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -220.0
+offset_right = 220.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="VBox" type="VBoxContainer" parent="Card"]
+layout_mode = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="Card/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.35, 1)
+theme_override_font_sizes/font_size = 24
+text = "GÜN 1 TAMAMLANDI"
+horizontal_alignment = 1
+
+[node name="HSeparator1" type="HSeparator" parent="Card/VBox"]
+layout_mode = 2
+
+[node name="StatsSection" type="VBoxContainer" parent="Card/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="CustomerStatsLabel" type="Label" parent="Card/VBox/StatsSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.92, 0.96, 1)
+theme_override_font_sizes/font_size = 15
+text = "Toplam Müşteri: 10\n✓ Başarılı: 8\n✗ Kaçan/Timeout: 2"
+
+[node name="HSeparator2" type="HSeparator" parent="Card/VBox/StatsSection"]
+layout_mode = 2
+
+[node name="RevenueBreakdownLabel" type="Label" parent="Card/VBox/StatsSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Dondurma Geliri: $50.00\nBahşiş Geliri: $18.00\nİkram Bonusu: $6.00"
+
+[node name="TotalMoneyLabel" type="Label" parent="Card/VBox/StatsSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 1, 0.55, 1)
+theme_override_font_sizes/font_size = 16
+text = "Günün Kazancı: +$74.00\nToplam Kasa: $124.00"
+
+[node name="ReputationLabel" type="Label" parent="Card/VBox/StatsSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.88, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "İtibar: %100"
+
+[node name="HSeparator3" type="HSeparator" parent="Card/VBox"]
+layout_mode = 2
+
+[node name="ContinueButton" type="Button" parent="Card/VBox"]
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+text = "GELİŞTİRMELER (DÜKKAN)  ▶"

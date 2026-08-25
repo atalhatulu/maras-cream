@@ -1,0 +1,42 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/ice_cream_tub.gd" id="1_tub"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_tub"]
+size = Vector3(0.35, 0.25, 0.35)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metal"]
+albedo_color = Color(0.7, 0.72, 0.75, 1)
+metallic = 0.8
+roughness = 0.3
+
+[sub_resource type="BoxMesh" id="BoxMesh_rim"]
+material = SubResource("StandardMaterial3D_metal")
+size = Vector3(0.35, 0.25, 0.35)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ice_cream"]
+size = Vector3(0.31, 0.05, 0.31)
+
+[node name="IceCreamTub" type="StaticBody3D" node_paths=PackedStringArray("tub_name_label_3d", "ice_cream_surface_mesh")]
+script = ExtResource("1_tub")
+tub_name_label_3d = NodePath("Label3D")
+ice_cream_surface_mesh = NodePath("IceCreamSurface")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.125, 0)
+shape = SubResource("BoxShape3D_tub")
+
+[node name="MetalTubMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.125, 0)
+mesh = SubResource("BoxMesh_rim")
+
+[node name="IceCreamSurface" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.23, 0)
+mesh = SubResource("BoxMesh_ice_cream")
+
+[node name="Label3D" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 0.28, 0.2)
+pixel_size = 0.002
+text = "Dondurma"
+font_size = 32
+outline_size = 6

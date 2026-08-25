@@ -1,0 +1,144 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/shop_dialog.gd" id="1_shop"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg_dim"]
+bg_color = Color(0.03, 0.04, 0.06, 0.85)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.07, 0.08, 0.11, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.8, 0.28, 0.85)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+expand_margin_left = 20.0
+expand_margin_top = 16.0
+expand_margin_right = 20.0
+expand_margin_bottom = 16.0
+shadow_color = Color(0, 0, 0, 0.6)
+shadow_size = 14
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_start_btn"]
+bg_color = Color(0.18, 0.58, 0.32, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.45, 0.95, 0.6, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="ShopDialog" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_shop")
+
+[node name="DimOverlay" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg_dim")
+
+[node name="Card" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -340.0
+offset_top = -260.0
+offset_right = 340.0
+offset_bottom = 260.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="TopHeader" type="HBoxContainer" parent="Card"]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="Card/TopHeader"]
+layout_mode = 2
+size_flags_horizontal = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.35, 1)
+theme_override_font_sizes/font_size = 20
+text = "🍦 MARAŞ USTA GELİŞTİRMELERİ"
+
+[node name="DayLabel" type="Label" parent="Card/TopHeader"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.85, 0.95, 1)
+theme_override_font_sizes/font_size = 15
+text = "Gelecek Gün: 2"
+
+[node name="MoneyLabel" type="Label" parent="Card/TopHeader"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 1, 0.55, 1)
+theme_override_font_sizes/font_size = 16
+text = "Kasa: $120.00"
+
+[node name="CategoryTabs" type="HBoxContainer" parent="Card"]
+layout_mode = 2
+size_flags_vertical = 0
+offset_top = 40.0
+offset_bottom = 74.0
+theme_override_constants/separation = 8
+
+[node name="BtnAll" type="Button" parent="Card/CategoryTabs"]
+layout_mode = 2
+text = "Tümü"
+
+[node name="BtnCone" type="Button" parent="Card/CategoryTabs"]
+layout_mode = 2
+text = "Külah & Denge"
+
+[node name="BtnScoop" type="Button" parent="Card/CategoryTabs"]
+layout_mode = 2
+text = "Kepçe"
+
+[node name="BtnCustomer" type="Button" parent="Card/CategoryTabs"]
+layout_mode = 2
+text = "Müşteri"
+
+[node name="BtnFlavors" type="Button" parent="Card/CategoryTabs"]
+layout_mode = 2
+text = "Tatlar & Soslar"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Card"]
+layout_mode = 2
+offset_top = 84.0
+offset_bottom = 440.0
+horizontal_scroll_mode = 0
+
+[node name="ItemsContainer" type="VBoxContainer" parent="Card/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="BottomBar" type="HBoxContainer" parent="Card"]
+layout_mode = 2
+size_flags_vertical = 8
+alignment = 2
+
+[node name="StartDayButton" type="Button" parent="Card/BottomBar"]
+custom_minimum_size = Vector2(220, 42)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBoxFlat_start_btn")
+text = "GÜNÜ BAŞLAT  ▶"

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ToppingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/topping_data.gd" id="1_top"]
+
+[resource]
+script = ExtResource("1_top")
+id = "findik"
+topping_name = "Kavruk Fındık"
+color = Color(0.82, 0.62, 0.42, 1.0)
+type = 1
+extra_price = 3.5

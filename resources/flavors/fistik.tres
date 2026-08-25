@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="FlavorData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/flavor_data.gd" id="1_flavor"]
+
+[resource]
+script = ExtResource("1_flavor")
+id = "fistik"
+flavor_name = "Antep Fıstığı"
+color = Color(0.48, 0.72, 0.38, 1)
+score_multiplier = 1.3
+cost = 0.8
+sale_price = 3.0
+unlock_level = 1

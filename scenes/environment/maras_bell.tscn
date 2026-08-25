@@ -1,0 +1,59 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/maras_bell.gd" id="1_bell"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_brass_shiny"]
+albedo_color = Color(0.95, 0.78, 0.28, 1)
+metallic = 0.95
+roughness = 0.18
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_chain"]
+material = SubResource("StandardMaterial3D_brass_shiny")
+top_radius = 0.007
+bottom_radius = 0.007
+height = 0.35
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_bell_cup"]
+material = SubResource("StandardMaterial3D_brass_shiny")
+top_radius = 0.035
+bottom_radius = 0.1
+height = 0.15
+
+[sub_resource type="SphereMesh" id="SphereMesh_clapper"]
+material = SubResource("StandardMaterial3D_brass_shiny")
+radius = 0.025
+height = 0.05
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_bell_col"]
+radius = 0.26
+
+[node name="MarasBell" type="StaticBody3D" node_paths=PackedStringArray("bell_mesh")]
+script = ExtResource("1_bell")
+bell_mesh = NodePath("BellPivot/BellCup")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.28, 0)
+shape = SubResource("SphereShape3D_bell_col")
+
+[node name="Chain" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 0)
+mesh = SubResource("CylinderMesh_chain")
+
+[node name="BellPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.3, 0)
+
+[node name="BellCup" type="MeshInstance3D" parent="BellPivot"]
+mesh = SubResource("CylinderMesh_bell_cup")
+
+[node name="Clapper" type="MeshInstance3D" parent="BellPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.08, 0)
+mesh = SubResource("SphereMesh_clapper")
+
+[node name="Label3D" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.48, 0)
+billboard = 1
+text = "MARAŞ ZİLİ [E]"
+font_size = 15
+outline_size = 4
+outline_modulate = Color(0, 0, 0, 0.95)
+modulate = Color(1, 0.9, 0.35, 1)

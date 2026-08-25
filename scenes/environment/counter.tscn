@@ -1,0 +1,247 @@
+[gd_scene format=3 uid="uid://oue2jkyoksfr"]
+
+[ext_resource type="Script" uid="uid://dfb6hbywalrxp" path="res://scripts/environment/counter.gd" id="1_counter"]
+[ext_resource type="PackedScene" path="res://scenes/environment/ice_cream_tub.tscn" id="2_tub_scene"]
+[ext_resource type="Resource" path="res://resources/flavors/sade.tres" id="3_sade"]
+[ext_resource type="Resource" path="res://resources/flavors/cikolata.tres" id="4_cikolata"]
+[ext_resource type="Resource" path="res://resources/flavors/fistik.tres" id="5_fistik"]
+[ext_resource type="Resource" path="res://resources/flavors/cilek.tres" id="6_cilek"]
+[ext_resource type="Resource" path="res://resources/flavors/karamel.tres" id="7_karamel"]
+[ext_resource type="PackedScene" path="res://scenes/environment/cone_dispenser.tscn" id="8_dispenser"]
+[ext_resource type="PackedScene" path="res://scenes/environment/trash_can.tscn" id="9_trash"]
+[ext_resource type="PackedScene" path="res://scenes/environment/tub_switch_button.tscn" id="10_switch_btn_scene"]
+[ext_resource type="PackedScene" path="res://scenes/environment/maras_bell.tscn" id="11_bell_scene"]
+[ext_resource type="PackedScene" uid="uid://c6qtopbot1234" path="res://scenes/environment/topping_bottle.tscn" id="12_bottle_scene"]
+[ext_resource type="Resource" path="res://resources/toppings/cikolata_sos.tres" id="13_cikolata_sos"]
+[ext_resource type="Resource" path="res://resources/toppings/patlayan_seker.tres" id="14_patlayan_seker"]
+[ext_resource type="Resource" path="res://resources/toppings/antep_fistigi.tres" id="15_antep_fistigi"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_counter"]
+size = Vector3(2.6, 0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_marble_counter"]
+albedo_color = Color(0.22, 0.24, 0.26, 1)
+roughness = 0.25
+metallic = 0.1
+
+[sub_resource type="BoxMesh" id="BoxMesh_counter"]
+material = SubResource("StandardMaterial3D_marble_counter")
+size = Vector3(2.6, 0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_brass"]
+albedo_color = Color(0.92, 0.76, 0.32, 1)
+metallic = 0.9
+roughness = 0.2
+
+[sub_resource type="BoxMesh" id="BoxMesh_brass_trim"]
+material = SubResource("StandardMaterial3D_brass")
+size = Vector3(2.64, 0.04, 0.94)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sign_bg"]
+albedo_color = Color(0.08, 0.1, 0.14, 1)
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_sign_board"]
+material = SubResource("StandardMaterial3D_sign_bg")
+size = Vector3(1.8, 0.32, 0.04)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metal_dark"]
+albedo_color = Color(0.15, 0.15, 0.18, 1)
+metallic = 0.85
+roughness = 0.35
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pillar"]
+material = SubResource("StandardMaterial3D_metal_dark")
+top_radius = 0.025
+bottom_radius = 0.025
+height = 1.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_awning_nyc"]
+albedo_color = Color(0.12, 0.28, 0.22, 1)
+roughness = 0.8
+
+[sub_resource type="PrismMesh" id="PrismMesh_awning"]
+material = SubResource("StandardMaterial3D_awning_nyc")
+size = Vector3(2.8, 0.35, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lamp_fixture"]
+albedo_color = Color(0.12, 0.12, 0.12, 1)
+metallic = 0.9
+roughness = 0.3
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_lamp_shade"]
+material = SubResource("StandardMaterial3D_lamp_fixture")
+top_radius = 0.04
+bottom_radius = 0.12
+height = 0.09
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bulb_natural"]
+albedo_color = Color(1, 0.92, 0.78, 1)
+roughness = 0.4
+
+[sub_resource type="SphereMesh" id="SphereMesh_bulb"]
+material = SubResource("StandardMaterial3D_bulb_natural")
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metal_cup"]
+albedo_color = Color(0.75, 0.76, 0.8, 1)
+metallic = 0.92
+roughness = 0.22
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_spoon_cup"]
+material = SubResource("StandardMaterial3D_metal_cup")
+top_radius = 0.04
+bottom_radius = 0.035
+height = 0.1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_napkins"]
+albedo_color = Color(0.92, 0.92, 0.9, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_napkin_box"]
+material = SubResource("StandardMaterial3D_napkins")
+size = Vector3(0.1, 0.08, 0.08)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_register"]
+albedo_color = Color(0.25, 0.22, 0.18, 1)
+metallic = 0.75
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="BoxMesh_register_body"]
+material = SubResource("StandardMaterial3D_register")
+size = Vector3(0.28, 0.18, 0.26)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shelf_wood"]
+albedo_color = Color(0.3, 0.18, 0.12, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="BoxMesh_shelf"]
+material = SubResource("StandardMaterial3D_shelf_wood")
+size = Vector3(2.4, 0.04, 0.22)
+
+[node name="Counter" type="Node3D" unique_id=722707415 node_paths=PackedStringArray("tubs", "cone_stand_marker", "service_tray_marker")]
+script = ExtResource("1_counter")
+tubs = [NodePath("Tub_Sade"), NodePath("Tub_Cikolata"), NodePath("Tub_Fistik"), NodePath("Tub_Cilek"), NodePath("Tub_Karamel")]
+cone_stand_marker = NodePath("ConeDispenser")
+service_tray_marker = NodePath("ServiceTrayMarker")
+
+[node name="CounterStaticBody" type="StaticBody3D" parent="." unique_id=873015083]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CounterStaticBody" unique_id=2113261084]
+shape = SubResource("BoxShape3D_counter")
+
+[node name="CounterMesh" type="MeshInstance3D" parent="CounterStaticBody" unique_id=1577726516]
+mesh = SubResource("BoxMesh_counter")
+
+[node name="BrassTopTrim" type="MeshInstance3D" parent="CounterStaticBody" unique_id=1204051026]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.44, 0)
+mesh = SubResource("BoxMesh_brass_trim")
+
+[node name="FrontSignBoard" type="MeshInstance3D" parent="." unique_id=1099531422]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, -0.46)
+mesh = SubResource("BoxMesh_sign_board")
+
+[node name="SignLabel" type="Label3D" parent="FrontSignBoard" unique_id=1683120506]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.025)
+modulate = Color(1, 0.85, 0.4, 1)
+outline_modulate = Color(0, 0, 0, 0.8)
+text = "GELENEKSEL MARAŞ DONDURMASI"
+font_size = 20
+
+[node name="PillarLeft" type="MeshInstance3D" parent="." unique_id=1160872276]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, 1.7, 0)
+mesh = SubResource("CylinderMesh_pillar")
+
+[node name="PillarRight" type="MeshInstance3D" parent="." unique_id=178528090]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, 1.7, 0)
+mesh = SubResource("CylinderMesh_pillar")
+
+[node name="Awning" type="MeshInstance3D" parent="." unique_id=874036837]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.55, 0)
+mesh = SubResource("PrismMesh_awning")
+
+[node name="StallLamp" type="Node3D" parent="." unique_id=589370686]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.35, 0)
+
+[node name="LampShade" type="MeshInstance3D" parent="StallLamp" unique_id=1505618852]
+mesh = SubResource("CylinderMesh_lamp_shade")
+
+[node name="LampBulb" type="MeshInstance3D" parent="StallLamp" unique_id=549983505]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+mesh = SubResource("SphereMesh_bulb")
+
+[node name="WarmSpotLight" type="SpotLight3D" parent="StallLamp" unique_id=1810429738]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, -0.05, 0)
+light_color = Color(1, 0.88, 0.7, 1)
+light_energy = 2.2
+shadow_enabled = true
+spot_range = 4.2
+spot_angle = 50.0
+spot_angle_attenuation = 1.2
+
+[node name="MarasBell" parent="." unique_id=615495091 instance=ExtResource("11_bell_scene")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.85, 2.05, 0.12)
+
+[node name="SpoonCup" type="MeshInstance3D" parent="." unique_id=363018471]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.18, 0.95, -0.2)
+mesh = SubResource("CylinderMesh_spoon_cup")
+
+[node name="NapkinBox" type="MeshInstance3D" parent="." unique_id=331042252]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.18, 0.94, -0.04)
+mesh = SubResource("BoxMesh_napkin_box")
+
+[node name="CashRegister" type="MeshInstance3D" parent="." unique_id=198765432]
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, -1.15, 0.99, -0.22)
+mesh = SubResource("BoxMesh_register_body")
+
+[node name="RegisterLabel" type="Label3D" parent="CashRegister" unique_id=187654321]
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 0.12, 0.08)
+modulate = Color(0.4, 1, 0.55, 1)
+text = "KASA"
+font_size = 14
+
+[node name="Bottle_CikolataSos" parent="." unique_id=440050051 instance=ExtResource("12_bottle_scene")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.62, 0.9, 0.38)
+topping_data = ExtResource("13_cikolata_sos")
+
+[node name="Bottle_PatlayanSeker" parent="." unique_id=542614573 instance=ExtResource("12_bottle_scene")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.78, 0.9, 0.38)
+topping_data = ExtResource("14_patlayan_seker")
+
+[node name="Bottle_AntepFistigi" parent="." unique_id=654321987 instance=ExtResource("12_bottle_scene")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.94, 0.9, 0.38)
+topping_data = ExtResource("15_antep_fistigi")
+
+[node name="TubSwitchButton" parent="." unique_id=1740133017 instance=ExtResource("10_switch_btn_scene")]
+transform = Transform3D(1, 0, 0, 0, 0.835545, -0.54942197, 0, 0.54942197, 0.835545, -0.57828444, 0.8723371, 0.3830505)
+
+[node name="Tub_Sade" parent="." unique_id=859717702 instance=ExtResource("2_tub_scene")]
+transform = Transform3D(1, 0, 0, 0, 0.9679686, -0.25107142, 0, 0.25107142, 0.9679686, -0.65, 0.9, 0.1)
+flavor = ExtResource("3_sade")
+
+[node name="Tub_Cikolata" parent="." unique_id=105133271 instance=ExtResource("2_tub_scene")]
+transform = Transform3D(1, 0, 0, 0, 0.9679686, -0.25107142, 0, 0.25107142, 0.9679686, -0.32, 0.9, 0.1)
+flavor = ExtResource("4_cikolata")
+
+[node name="Tub_Fistik" parent="." unique_id=1198366689 instance=ExtResource("2_tub_scene")]
+transform = Transform3D(1, 0, 0, 0, 0.9679686, -0.25107142, 0, 0.25107142, 0.9679686, 0, 0.9, 0.1)
+flavor = ExtResource("5_fistik")
+
+[node name="Tub_Cilek" parent="." unique_id=521762988 instance=ExtResource("2_tub_scene")]
+transform = Transform3D(1, 0, 0, 0, 0.9679686, -0.25107142, 0, 0.25107142, 0.9679686, 0.32, 0.9, 0.1)
+flavor = ExtResource("6_cilek")
+
+[node name="Tub_Karamel" parent="." unique_id=967944351 instance=ExtResource("2_tub_scene")]
+transform = Transform3D(1, 0, 0, 0, 0.9679686, -0.25107142, 0, 0.25107142, 0.9679686, 0.65, 0.9, 0.1)
+flavor = ExtResource("7_karamel")
+
+[node name="ConeDispenser" parent="." unique_id=866295382 instance=ExtResource("8_dispenser")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.05, 0.9, 0.1)
+
+[node name="TrashCan" parent="." unique_id=718261226 instance=ExtResource("9_trash")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7640047, 0, 0.6267246)
+
+[node name="ServiceTrayMarker" type="Marker3D" parent="." unique_id=1225729357]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.92, -0.25)

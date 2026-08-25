@@ -1,0 +1,70 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/tub_switch_button.gd" id="1_btn_script"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pedestal"]
+albedo_color = Color(0.16, 0.16, 0.18, 1)
+metallic = 0.8
+roughness = 0.35
+
+[sub_resource type="BoxMesh" id="BoxMesh_pedestal"]
+material = SubResource("StandardMaterial3D_pedestal")
+size = Vector3(0.24, 0.1, 0.24)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_brass"]
+albedo_color = Color(0.88, 0.7, 0.28, 1)
+metallic = 0.9
+roughness = 0.25
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_base"]
+material = SubResource("StandardMaterial3D_brass")
+top_radius = 0.075
+bottom_radius = 0.08
+height = 0.035
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_red_btn"]
+albedo_color = Color(0.9, 0.15, 0.15, 1)
+emission_enabled = true
+emission = Color(0.85, 0.12, 0.12, 1)
+emission_energy_multiplier = 1.4
+roughness = 0.25
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_cap"]
+material = SubResource("StandardMaterial3D_red_btn")
+top_radius = 0.06
+bottom_radius = 0.06
+height = 0.04
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_col"]
+height = 0.22
+radius = 0.14
+
+[node name="TubSwitchButton" type="StaticBody3D" node_paths=PackedStringArray("button_mesh", "button_label")]
+script = ExtResource("1_btn_script")
+button_mesh = NodePath("ButtonMesh")
+button_label = NodePath("ButtonLabel")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+shape = SubResource("CylinderShape3D_col")
+
+[node name="Pedestal" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+mesh = SubResource("BoxMesh_pedestal")
+
+[node name="BrassRing" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.115, 0)
+mesh = SubResource("CylinderMesh_base")
+
+[node name="ButtonMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.145, 0)
+mesh = SubResource("CylinderMesh_cap")
+
+[node name="ButtonLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.26, 0)
+billboard = 1
+text = "SIRA DEĞİŞTİR [E]"
+font_size = 18
+outline_size = 4
+outline_modulate = Color(0, 0, 0, 0.95)
+modulate = Color(1, 0.9, 0.3, 1)

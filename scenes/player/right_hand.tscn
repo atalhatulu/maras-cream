@@ -1,0 +1,102 @@
+[gd_scene load_steps=17 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/right_hand.gd" id="1_right"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sleeve"]
+albedo_color = Color(0.18, 0.20, 0.25, 1)
+roughness = 0.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_forearm"]
+material = SubResource("StandardMaterial3D_sleeve")
+radius = 0.034
+height = 0.22
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cuff"]
+albedo_color = Color(0.12, 0.12, 0.15, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="BoxMesh_cuff"]
+material = SubResource("StandardMaterial3D_cuff")
+size = Vector3(0.058, 0.042, 0.032)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glove_white"]
+albedo_color = Color(0.92, 0.93, 0.96, 1)
+roughness = 0.5
+metallic = 0.05
+
+[sub_resource type="BoxMesh" id="BoxMesh_palm"]
+material = SubResource("StandardMaterial3D_glove_white")
+size = Vector3(0.054, 0.036, 0.052)
+
+[sub_resource type="BoxMesh" id="BoxMesh_fingers_grip"]
+material = SubResource("StandardMaterial3D_glove_white")
+size = Vector3(0.050, 0.032, 0.042)
+
+[sub_resource type="BoxMesh" id="BoxMesh_thumb_grip"]
+material = SubResource("StandardMaterial3D_glove_white")
+size = Vector3(0.018, 0.020, 0.036)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metal"]
+albedo_color = Color(0.72, 0.75, 0.78, 1)
+metallic = 0.92
+roughness = 0.2
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_handle"]
+material = SubResource("StandardMaterial3D_metal")
+top_radius = 0.009
+bottom_radius = 0.009
+height = 0.22
+
+[sub_resource type="SphereMesh" id="SphereMesh_scoop_cup"]
+material = SubResource("StandardMaterial3D_metal")
+radius = 0.038
+height = 0.048
+is_hemisphere = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ice_cream"]
+radius = 0.038
+height = 0.075
+
+[node name="RightHand" type="Node3D"]
+script = ExtResource("1_right")
+
+[node name="ArmRig" type="Node3D" parent="."]
+
+[node name="ForearmMesh" type="MeshInstance3D" parent="ArmRig"]
+transform = Transform3D(0.965926, -0.0885213, 0.24321, 0, 0.939693, 0.34202, -0.258819, -0.330366, 0.907673, 0.05, -0.1, 0.12)
+mesh = SubResource("CapsuleMesh_forearm")
+
+[node name="WristRig" type="Node3D" parent="ArmRig"]
+transform = Transform3D(0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, 0.965926, 0, 0, 0)
+
+[node name="WristCuff" type="MeshInstance3D" parent="ArmRig/WristRig"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.005, 0.038)
+mesh = SubResource("BoxMesh_cuff")
+
+[node name="PalmMesh" type="MeshInstance3D" parent="ArmRig/WristRig"]
+transform = Transform3D(1, 0, 0, 0, 0.965926, -0.258819, 0, 0.258819, 0.965926, 0, 0, 0)
+mesh = SubResource("BoxMesh_palm")
+
+[node name="FingersGrip" type="MeshInstance3D" parent="ArmRig/WristRig/PalmMesh"]
+transform = Transform3D(1, 0, 0, 0, 0.707107, -0.707107, 0, 0.707107, 0.707107, 0, -0.015, -0.035)
+mesh = SubResource("BoxMesh_fingers_grip")
+
+[node name="ThumbGrip" type="MeshInstance3D" parent="ArmRig/WristRig/PalmMesh"]
+transform = Transform3D(0.866025, 0, -0.5, -0.12941, 0.965926, -0.224144, 0.482963, 0.258819, 0.836516, -0.032, 0.015, -0.015)
+mesh = SubResource("BoxMesh_thumb_grip")
+
+[node name="ScoopPivot" type="Node3D" parent="."]
+transform = Transform3D(0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, 0.965926, 0, 0.01, -0.02)
+
+[node name="ScoopHandle" type="MeshInstance3D" parent="ScoopPivot"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, -0.09)
+mesh = SubResource("CylinderMesh_handle")
+
+[node name="ScoopPlaceholder" type="MeshInstance3D" parent="ScoopPivot"]
+transform = Transform3D(1, 0, 0, 0, -1, 8.74228e-08, 0, -8.74228e-08, -1, 0, 0, -0.21)
+mesh = SubResource("SphereMesh_scoop_cup")
+
+[node name="IceCreamScoopVisual" type="MeshInstance3D" parent="ScoopPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, -0.21)
+visible = false
+mesh = SubResource("SphereMesh_ice_cream")

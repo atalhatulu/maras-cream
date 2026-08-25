@@ -1,0 +1,52 @@
+[gd_scene load_steps=7 format=3 uid="uid://c6qtopbot1234"]
+
+[ext_resource type="Script" path="res://scripts/environment/topping_bottle.gd" id="1_bottle"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_bottle_large"]
+height = 0.28
+radius = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bottle_body"]
+albedo_color = Color(0.85, 0.85, 0.85, 0.9)
+roughness = 0.3
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_body"]
+material = SubResource("StandardMaterial3D_bottle_body")
+top_radius = 0.04
+bottom_radius = 0.045
+height = 0.17
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cap"]
+albedo_color = Color(0.2, 0.2, 0.22, 1)
+roughness = 0.4
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_cap"]
+material = SubResource("StandardMaterial3D_cap")
+top_radius = 0.014
+bottom_radius = 0.038
+height = 0.08
+
+[node name="ToppingBottle" type="StaticBody3D" node_paths=PackedStringArray("bottle_mesh", "label_3d")]
+script = ExtResource("1_bottle")
+bottle_mesh = NodePath("BottleMesh")
+label_3d = NodePath("Label3D")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.14, 0)
+shape = SubResource("CylinderShape3D_bottle_large")
+
+[node name="BottleMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.085, 0)
+mesh = SubResource("CylinderMesh_body")
+
+[node name="CapMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.20, 0)
+mesh = SubResource("CylinderMesh_cap")
+
+[node name="Label3D" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.28, 0)
+billboard = 1
+text = "SOS"
+font_size = 14
+outline_size = 3
+outline_modulate = Color(0, 0, 0, 0.95)

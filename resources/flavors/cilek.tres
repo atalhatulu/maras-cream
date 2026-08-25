@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="FlavorData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/flavor_data.gd" id="1_flavor"]
+
+[resource]
+script = ExtResource("1_flavor")
+id = "cilek"
+flavor_name = "Çilek"
+color = Color(0.9, 0.3, 0.42, 1)
+score_multiplier = 1.15
+cost = 0.65
+sale_price = 2.6
+unlock_level = 1

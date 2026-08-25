@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="FlavorData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/flavor_data.gd" id="1_flavor"]
+
+[resource]
+script = ExtResource("1_flavor")
+id = "limon"
+flavor_name = "Limon"
+color = Color(0.92, 0.96, 0.28, 1)
+cost_per_scoop = 1.8
+base_price = 6.5
+tier = 1
+is_unlocked = true

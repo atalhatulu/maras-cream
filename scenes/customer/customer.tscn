@@ -1,0 +1,93 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scripts/customer/customer.gd" id="1_customer"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_customer_large"]
+radius = 0.55
+height = 2.1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_coat"]
+albedo_color = Color(0.2, 0.22, 0.28, 1)
+roughness = 0.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
+material = SubResource("StandardMaterial3D_coat")
+radius = 0.26
+height = 1.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_skin"]
+albedo_color = Color(0.85, 0.7, 0.58, 1)
+roughness = 0.6
+
+[sub_resource type="SphereMesh" id="SphereMesh_head"]
+material = SubResource("StandardMaterial3D_skin")
+radius = 0.16
+height = 0.32
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_beanie"]
+albedo_color = Color(0.12, 0.12, 0.14, 1)
+roughness = 0.9
+
+[sub_resource type="SphereMesh" id="SphereMesh_beanie"]
+material = SubResource("StandardMaterial3D_beanie")
+radius = 0.165
+height = 0.18
+is_hemisphere = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hands"]
+albedo_color = Color(0.85, 0.7, 0.58, 1)
+roughness = 0.6
+
+[sub_resource type="SphereMesh" id="SphereMesh_hand"]
+material = SubResource("StandardMaterial3D_hands")
+radius = 0.05
+height = 0.1
+
+[sub_resource type="BoxMesh" id="BoxMesh_accessory"]
+size = Vector3(0.12, 0.14, 0.06)
+
+[node name="Customer" type="CharacterBody3D" groups=["customer"]]
+script = ExtResource("1_customer")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, 0)
+shape = SubResource("CapsuleShape3D_customer_large")
+
+[node name="VisualPivot" type="Node3D" parent="."]
+
+[node name="CustomerMesh" type="MeshInstance3D" parent="VisualPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.68, 0)
+mesh = SubResource("CapsuleMesh_body")
+
+[node name="HeadPivot" type="Node3D" parent="VisualPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+
+[node name="HeadMesh" type="MeshInstance3D" parent="VisualPivot/HeadPivot"]
+mesh = SubResource("SphereMesh_head")
+
+[node name="BeanieMesh" type="MeshInstance3D" parent="VisualPivot/HeadPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, 0)
+mesh = SubResource("SphereMesh_beanie")
+
+[node name="AccessoryMesh" type="MeshInstance3D" parent="VisualPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0.65, 0.12)
+mesh = SubResource("BoxMesh_accessory")
+
+[node name="HandsPivot" type="Node3D" parent="VisualPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.72, 0)
+
+[node name="LeftHand" type="MeshInstance3D" parent="VisualPivot/HandsPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.28, 0, 0.05)
+mesh = SubResource("SphereMesh_hand")
+
+[node name="RightHand" type="MeshInstance3D" parent="VisualPivot/HandsPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.28, 0, 0.05)
+mesh = SubResource("SphereMesh_hand")
+
+[node name="SpeechLabel3D" type="Label3D" parent="VisualPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
+billboard = 1
+text = "..."
+font_size = 26
+outline_size = 5
+outline_modulate = Color(0, 0, 0, 0.9)

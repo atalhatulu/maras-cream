@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ToppingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/topping_data.gd" id="1_top"]
+
+[resource]
+script = ExtResource("1_top")
+id = "karamel_sos"
+topping_name = "Karamel Sosu"
+color = Color(0.85, 0.52, 0.12, 1.0)
+type = 0
+extra_price = 3.0

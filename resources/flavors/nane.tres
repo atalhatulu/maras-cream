@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="FlavorData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/flavor_data.gd" id="1_flavor"]
+
+[resource]
+script = ExtResource("1_flavor")
+id = "nane"
+flavor_name = "Nane"
+color = Color(0.4, 0.88, 0.68, 1)
+cost_per_scoop = 2.0
+base_price = 7.0
+tier = 1
+is_unlocked = true

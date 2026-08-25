@@ -1,0 +1,29 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/player/left_hand.tscn" id="2_left_hand"]
+[ext_resource type="PackedScene" path="res://scenes/player/right_hand.tscn" id="3_right_hand"]
+[ext_resource type="Script" path="res://scripts/player/player_interaction.gd" id="4_interaction"]
+
+[node name="PlayerRig" type="Node3D"]
+script = ExtResource("1_player")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 0)
+current = true
+fov = 76.0
+near = 0.02
+
+[node name="InteractionRayCast" type="RayCast3D" parent="Camera3D"]
+target_position = Vector3(0, 0, -4.0)
+collide_with_areas = true
+collide_with_bodies = true
+
+[node name="LeftHandRig" parent="Camera3D" instance=ExtResource("2_left_hand")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.19, -0.16, -0.28)
+
+[node name="RightHandRig" parent="Camera3D" instance=ExtResource("3_right_hand")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.19, -0.16, -0.28)
+
+[node name="PlayerInteraction" type="Node" parent="."]
+script = ExtResource("4_interaction")
