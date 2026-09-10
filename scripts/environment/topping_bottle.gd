@@ -17,19 +17,39 @@ func _ready() -> void:
 	_base_scale = scale
 	_cache_materials()
 	_update_visual()
+	EventBus.upgrade_purchased.connect(func(_id, _lvl): _update_visual())
 
 func _cache_materials() -> void:
 	if bottle_mesh:
 		for i in range(bottle_mesh.get_surface_override_material_count()):
 			_original_materials.append(bottle_mesh.get_surface_override_material(i))
 
+func is_unlocked() -> bool:
+	if topping_data == null:
+		return false
+	return GameManager.is_topping_unlocked(topping_data.id)
+
 func _update_visual() -> void:
 	if topping_data and label_3d:
-		label_3d.text = topping_data.topping_name
-		label_3d.modulate = topping_data.color.lightened(0.35)
+		if is_unlocked():
+			label_3d.text = topping_data.topping_name
+			label_3d.modulate = topping_data.color.lightened(0.35)
+		else:
+			label_3d.text = "[KİLİTLİ]\n" + topping_data.topping_name
+			label_3d.modulate = Color(0.7, 0.7, 0.7, 0.75)
 
 func interact() -> void:
 	if _is_animating or topping_data == null:
+		return
+		
+	if not is_unlocked():
+		EventBus.notification_requested.emit("%s kilitli! Dükkandan satın alabilirsin." % topping_data.topping_name, 1.4)
+		_is_animating = true
+		var shake_tween = create_tween()
+		shake_tween.tween_property(self, "position:x", _base_pos.x + 0.02, 0.05)
+		shake_tween.tween_property(self, "position:x", _base_pos.x - 0.02, 0.05)
+		shake_tween.tween_property(self, "position:x", _base_pos.x, 0.05)
+		shake_tween.tween_callback(func(): _is_animating = false)
 		return
 		
 	_is_animating = true

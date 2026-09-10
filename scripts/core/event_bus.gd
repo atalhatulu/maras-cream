@@ -31,6 +31,8 @@ signal cone_dropped
 signal cone_reset
 signal cone_state_changed(state_name: String, current_count: int, flavors: Array[FlavorData])
 signal cone_balance_updated(balance_ratio: float, current_angle_deg: float)
+signal cone_critical_tilt(tilt_ratio: float)
+signal maras_trick_performed(trick_count: int, multiplier: float)
 
 # --- MÜŞTERİ VE SİPARİŞ SİSTEMİ ---
 signal customer_arrived(customer_node: Node3D, order: OrderData)
@@ -44,6 +46,7 @@ signal day_started(day_number: int, target_customers: int)
 signal day_progress_updated(served_count: int, target_count: int)
 signal day_completed(summary_data: Dictionary)
 signal next_day_started(day_number: int)
+signal daily_event_announced(event_id: String, title: String, description: String)
 signal shop_opened
 signal shop_closed
 signal upgrade_purchased(upgrade_id: String, new_level: int)

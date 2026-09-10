@@ -1,4 +1,3 @@
-class_name AudioManager
 extends Node
 
 # Ses Havuzları ve Önceden Üretilmiş WAV Kaynakları
@@ -47,6 +46,8 @@ func _connect_gameplay_events() -> void:
 	)
 	EventBus.upgrade_purchased.connect(func(_id, _lvl): play_sfx("upgrade_purchase", 1.0))
 	EventBus.customer_arrived.connect(func(_c, _o): play_sfx("customer_arrive", 1.0))
+	EventBus.maras_trick_performed.connect(func(_cnt, _mult): play_sfx("trick_swoosh", 1.0 + float(_cnt) * 0.1))
+	EventBus.cone_critical_tilt.connect(func(_ratio): play_sfx("cone_wobble", 1.0, -6.0))
 
 # --- SES ÇALMA MERKEZİ ---
 
@@ -84,6 +85,8 @@ func _generate_all_procedural_sounds() -> void:
 	_samples["scoop_land"] = _gen_tone_burst(220.0, 110.0, 0.15, 0.6, false)
 	_samples["cone_pickup"] = _gen_noise_click(0.08, 600.0)
 	_samples["cone_dropped"] = _gen_tone_burst(90.0, 35.0, 0.45, 0.8, true)
+	_samples["cone_wobble"] = _gen_tone_burst(110.0, 70.0, 0.16, 0.45, true)
+	_samples["trick_swoosh"] = _gen_tone_burst(650.0, 260.0, 0.14, 0.4, true)
 	_samples["topping_squeeze"] = _gen_squeeze_squirt(520.0, 780.0, 0.16)
 	_samples["bell_hit"] = _gen_bell_chime(1318.5, 0.65) # Parlak E6 Çan tınlaması
 	_samples["order_success"] = _gen_chord_fanfare([523.25, 659.25, 783.99, 1046.5], 0.45) # C5-E5-G5-C6 Akor

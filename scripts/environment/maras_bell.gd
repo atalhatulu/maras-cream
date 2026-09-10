@@ -37,7 +37,7 @@ func ring() -> void:
 		_ring_combo = 1
 	_last_ring_time = now
 	
-	AudioManager.play_bell_sound()
+	AudioManager.play_sfx("bell_hit")
 	EventBus.bell_rung.emit(_ring_combo)
 	
 	# Zilin sallanma fiziği (Çan salınımı)

@@ -193,6 +193,12 @@ func get_upgrade_effect(upgrade_id: String, effect_key: String) -> float:
 		return upgrades[upgrade_id].get_total_effect(effect_key)
 	return 0.0
 
+func is_flavor_unlocked(flavor_id: String) -> bool:
+	return unlocked_flavor_ids.has(flavor_id)
+
+func is_topping_unlocked(topping_id: String) -> bool:
+	return unlocked_topping_ids.has(topping_id)
+
 func get_unlocked_flavors() -> Array[FlavorData]:
 	var list: Array[FlavorData] = []
 	for id in unlocked_flavor_ids:
@@ -208,6 +214,56 @@ func get_unlocked_toppings() -> Array[ToppingData]:
 	return list
 
 # --- GÜN DÖNGÜSÜ YÖNETİMİ ---
+
+var current_daily_event_id: String = "NORMAL"
+var current_daily_event_title: String = "Açılış Günü"
+var current_daily_event_desc: String = "Hayırlı işler! İlk müşteriler dükkana geliyor."
+
+func get_base_scoop_price() -> float:
+	if current_daily_event_id == "HEATWAVE":
+		return 6.0
+	return 5.0
+
+func _roll_daily_event(day_num: int) -> void:
+	if day_num == 1:
+		current_daily_event_id = "NORMAL"
+		current_daily_event_title = "Açılış Günü"
+		current_daily_event_desc = "Hayırlı işler! İlk müşteriler dükkana geliyor."
+	else:
+		var events = [
+			{
+				"id": "HEATWAVE",
+				"title": "Sıcak Hava Dalgası",
+				"desc": "Hava çok sıcak! Top başı fiyat +$1, kule dengesi hassaslaştı."
+			},
+			{
+				"id": "TOURIST_BUS",
+				"title": "Turist Kafilesi",
+				"desc": "Şehre turist kafilesi geldi! Meraklı turist akını ve bol bahşiş!"
+			},
+			{
+				"id": "CHILDRENS_DAY",
+				"title": "Çocuk Şenliği",
+				"desc": "Mahalle çocukları akın ediyor! Bol soslu çılgın kuleler isteniyor!"
+			},
+			{
+				"id": "GOURMET_VISIT",
+				"title": "Gurme Teftişi",
+				"desc": "Lezzet eleştirmeni mahallede! Kusursuz kulelere devasa itibar!"
+			},
+			{
+				"id": "NORMAL",
+				"title": "Güneşli ve Sakin Bir Gün",
+				"desc": "Müşteriler sakin ve keyifle Maraş dondurması bekliyor."
+			}
+		]
+		var ev = events.pick_random()
+		current_daily_event_id = ev["id"]
+		current_daily_event_title = ev["title"]
+		current_daily_event_desc = ev["desc"]
+		
+	EventBus.daily_event_announced.emit(current_daily_event_id, current_daily_event_title, current_daily_event_desc)
+	EventBus.notification_requested.emit("GÜN %d: %s! (%s)" % [day_num, current_daily_event_title, current_daily_event_desc], 3.4)
 
 func start_day(day_num: int = 1) -> void:
 	current_day = day_num
@@ -227,9 +283,10 @@ func start_day(day_num: int = 1) -> void:
 	daily_bonus = 0.0
 	daily_wasted_cones = 0
 	
+	_roll_daily_event(current_day)
+	
 	EventBus.day_started.emit(current_day, day_customer_target)
 	EventBus.day_progress_updated.emit(customers_served, day_customer_target)
-	EventBus.notification_requested.emit("GÜN %d BAŞLADI! Hedef: %d Müşteri" % [current_day, day_customer_target], 2.5)
 
 func can_spawn_customer() -> bool:
 	return day_active and (customers_served < day_customer_target)
@@ -348,12 +405,15 @@ func _on_cone_discarded() -> void:
 
 # --- SAVE / LOAD SİSTEMİ ---
 
+const CURRENT_SAVE_VERSION: int = 2
+
 func save_game() -> void:
 	var up_levels_dict: Dictionary = {}
 	for up_id in upgrades.keys():
 		up_levels_dict[up_id] = upgrades[up_id].current_level
 		
 	var save_dict = {
+		"save_version": CURRENT_SAVE_VERSION,
 		"current_day": current_day,
 		"current_money": current_money,
 		"current_reputation": current_reputation,
@@ -386,19 +446,24 @@ func load_game() -> bool:
 		
 	var data = json.get_data()
 	if typeof(data) == TYPE_DICTIONARY:
+		var _version = int(data.get("save_version", 1))
 		current_day = int(data.get("current_day", 1))
 		current_money = float(data.get("current_money", 50.0))
 		current_reputation = float(data.get("current_reputation", 100.0))
 		
-		if data.has("unlocked_flavor_ids") and typeof(data["unlocked_flavor_ids"]) == TYPE_ARRAY:
+		if data.has("unlocked_flavor_ids") and typeof(data["unlocked_flavor_ids"]) == TYPE_ARRAY and not data["unlocked_flavor_ids"].is_empty():
 			unlocked_flavor_ids.clear()
 			for f_id in data["unlocked_flavor_ids"]:
 				unlocked_flavor_ids.append(str(f_id))
+		else:
+			unlocked_flavor_ids = ["sade", "cikolata", "fistik", "cilek", "karamel"]
 				
-		if data.has("unlocked_topping_ids") and typeof(data["unlocked_topping_ids"]) == TYPE_ARRAY:
+		if data.has("unlocked_topping_ids") and typeof(data["unlocked_topping_ids"]) == TYPE_ARRAY and not data["unlocked_topping_ids"].is_empty():
 			unlocked_topping_ids.clear()
 			for t_id in data["unlocked_topping_ids"]:
 				unlocked_topping_ids.append(str(t_id))
+		else:
+			unlocked_topping_ids = ["cikolata_sos", "patlayan_seker"]
 				
 		if data.has("upgrade_levels") and typeof(data["upgrade_levels"]) == TYPE_DICTIONARY:
 			var lvl_dict: Dictionary = data["upgrade_levels"]

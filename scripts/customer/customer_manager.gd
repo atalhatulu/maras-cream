@@ -15,19 +15,21 @@ var _last_cone_toppings: Array[ToppingData] = []
 var _is_order_ready_to_deliver: bool = false
 var _archetypes: Array[CustomerArchetype] = []
 var _spawn_timer: SceneTreeTimer = null
-var _last_archetype_type: CustomerArchetype.ArchetypeType = CustomerArchetype.ArchetypeType.TOURIST
+var _last_archetype_type: int = -1
+var _active_trick_count: int = 0
 
 func _ready() -> void:
 	_init_archetypes()
-	EventBus.customer_arrived.connect(_on_customer_arrived)
-	EventBus.customer_left.connect(_on_customer_left)
+	EventBus.day_started.connect(_on_day_started)
+	EventBus.bell_rung.connect(_on_bell_rung)
 	EventBus.cone_state_changed.connect(_on_cone_state_changed)
 	EventBus.topping_added_to_cone.connect(_on_topping_added_to_cone)
+	EventBus.order_delivery_attempted.connect(_on_order_delivery_attempted)
 	EventBus.cone_discarded.connect(_on_cone_discarded)
 	EventBus.cone_dropped.connect(_on_cone_dropped)
-	EventBus.order_delivery_attempted.connect(_on_order_delivery_attempted)
-	EventBus.bell_rung.connect(_on_bell_rung)
-	EventBus.day_started.connect(_on_day_started)
+	EventBus.customer_left.connect(_on_customer_left)
+	EventBus.customer_arrived.connect(_on_customer_arrived)
+	EventBus.maras_trick_performed.connect(func(cnt, _mult): _active_trick_count = cnt)
 	
 	if GameManager.can_spawn_customer():
 		_schedule_next_customer(1.0)
@@ -167,6 +169,15 @@ func pick_weighted_archetype() -> CustomerArchetype:
 		var w = arch.get_spawn_weight_for_day(current_day)
 		if arch.type == _last_archetype_type:
 			w *= 0.35 # Arka arkaya aynı arketipin gelmesini %65 oranında azalt
+			
+		# Günün Olayı Çarpanı
+		if GameManager.current_daily_event_id == "TOURIST_BUS" and arch.type == CustomerArchetype.ArchetypeType.TOURIST:
+			w *= 3.2
+		elif GameManager.current_daily_event_id == "CHILDRENS_DAY" and arch.type == CustomerArchetype.ArchetypeType.CHILD:
+			w *= 3.2
+		elif GameManager.current_daily_event_id == "GOURMET_VISIT" and arch.type == CustomerArchetype.ArchetypeType.GOURMET:
+			w *= 3.2
+			
 		weights.append(w)
 		total_weight += w
 		
@@ -324,12 +335,18 @@ func _evaluate_order_progress(flavors: Array[FlavorData], toppings: Array[Toppin
 	else:
 		_is_order_ready_to_deliver = false
 
+func _is_customer_receivable() -> bool:
+	if active_customer == null:
+		return false
+	var s = active_customer.state
+	return s == Customer.State.WAITING or s == Customer.State.ORDER_READY or s == Customer.State.ORDER_IN_PROGRESS or s == Customer.State.IMPATIENT or s == Customer.State.DISAPPOINTED
+
 func _on_order_delivery_attempted() -> void:
 	if active_order == null or active_customer == null:
 		EventBus.notification_requested.emit("Bekleyen bir müşteri yok.", 1.2)
 		return
 		
-	if active_customer.state != Customer.State.WAITING:
+	if not _is_customer_receivable():
 		return
 		
 	if _last_cone_flavors.is_empty():
@@ -377,14 +394,15 @@ func _complete_active_order(progress_info: Dictionary = {}) -> void:
 	if active_order == null or active_customer == null:
 		return
 		
-	if active_customer.state != Customer.State.WAITING:
+	if not _is_customer_receivable():
 		return
 		
 	var final_score = active_order.current_score
 	var extra_toppings: Array = progress_info.get("extra_toppings", [])
 	
-	# 1. Taban Fiyat Hesaplaması ($5.00 * Top Sayısı + İstenen Sos Fiyatları)
-	var base_price = float(active_order.flavors.size()) * 5.0
+	# 1. Taban Fiyat Hesaplaması (Dinamik Fiyat * Top Sayısı + İstenen Sos Fiyatları)
+	var base_scoop_price = GameManager.get_base_scoop_price()
+	var base_price = float(active_order.flavors.size()) * base_scoop_price
 	for top in active_order.toppings:
 		base_price += top.extra_price
 		
@@ -394,19 +412,25 @@ func _complete_active_order(progress_info: Dictionary = {}) -> void:
 	tip_mult += tip_upgrade_bonus
 	var tip_amount = (final_score / 5.0) * (base_price * 0.40) * tip_mult
 	
-	# 3. İkram / Ekstra Sos Bonusu
+	# 3. İkram / Ekstra Sos Bonusu & Maraş Şov Bonusu
 	var extra_bonus = 0.0
 	var bonus_text = ""
 	if not extra_toppings.is_empty():
 		var bonus_val = active_archetype.topping_bonus if active_archetype else 2.0
-		extra_bonus = bonus_val
+		extra_bonus += bonus_val
 		if active_archetype and active_archetype.type == CustomerArchetype.ArchetypeType.CHILD:
-			bonus_text = " (🧒 İkram Bonusu: +$%.2f!)" % bonus_val
+			bonus_text += " (🧒 İkram: +$%.2f!)" % bonus_val
 		elif active_archetype and active_archetype.type == CustomerArchetype.ArchetypeType.TOURIST:
 			GameManager.update_reputation(2.0)
-			bonus_text = " (📸 Sürpriz İkram: +$%.2f & +%%2 İtibar!)" % bonus_val
+			bonus_text += " (📸 Sürpriz İkram: +$%.2f & +%%2 İtibar!)" % bonus_val
 		else:
-			bonus_text = " (İkram Bonusu: +$%.2f)" % bonus_val
+			bonus_text += " (İkram: +$%.2f)" % bonus_val
+			
+	if _active_trick_count > 0:
+		var trick_bonus = float(_active_trick_count) * 3.50
+		extra_bonus += trick_bonus
+		bonus_text += " (🎭 Maraş Şovu x%d: +$%.2f!)" % [_active_trick_count, trick_bonus]
+		_active_trick_count = 0
 			
 	var total_earned = base_price + tip_amount + extra_bonus
 	

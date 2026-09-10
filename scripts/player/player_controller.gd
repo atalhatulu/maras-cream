@@ -89,6 +89,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 			
 		elif event.is_action_pressed("secondary_interact"):
+			if right_hand and right_hand.has_ice_cream():
+				EventBus.place_on_cone_attempted.emit()
+				return
+			if left_hand and left_hand.has_cone() and not left_hand.stacked_flavors.is_empty():
+				left_hand.perform_trick()
+				return
 			EventBus.place_on_cone_attempted.emit()
 			return
 
@@ -121,6 +127,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _handle_interact_pressed(collider: Object) -> void:
 	if collider is IceCreamTub:
+		if collider.has_method("is_unlocked") and not collider.is_unlocked():
+			var flavor_name = collider.get_flavor().flavor_name if collider.get_flavor() else "Bu lezzet"
+			EventBus.notification_requested.emit("%s kilitli! Dükkandan satın alabilirsin." % flavor_name, 1.4)
+			return
+			
 		var flavor = collider.get_flavor()
 		if right_hand and right_hand.has_ice_cream():
 			EventBus.notification_requested.emit("Kepçede zaten dondurma var!", 1.2)
@@ -208,12 +219,18 @@ func _get_tooltip_for_collider(col: Object) -> String:
 	if col == null:
 		return ""
 	if col is IceCreamTub:
+		if col.has_method("is_unlocked") and not col.is_unlocked():
+			var fn = col.flavor.flavor_name if col.flavor else ""
+			return "[KİLİTLİ] %s (Dükkandan Aç)" % fn
 		if col.flavor:
 			return "[Sol Tık] %s Al" % col.flavor.flavor_name
 		return "[Sol Tık] Dondurma Kepçele"
 	if col is ConeDispenser:
 		return "[Sol Tık] Külah Al"
 	if col is ToppingBottle:
+		if col.has_method("is_unlocked") and not col.is_unlocked():
+			var tn = col.topping_data.topping_name if col.topping_data else ""
+			return "[KİLİTLİ] %s (Dükkandan Aç)" % tn
 		if col.topping_data:
 			return "[Sol Tık] %s Kullan" % col.topping_data.topping_name
 		return "[Sol Tık] Sos Kullan"
@@ -242,7 +259,7 @@ func _update_hands_procedural_motion(delta: float) -> void:
 	var retract_z = down_pitch_ratio * 0.08
 	
 	# 1. SOL EL (KÜLAH): Fare hareketlerinden bağımsız, ekranda sabit ve stabil dayanak
-	if left_hand and not left_hand.is_reaching_cone:
+	if left_hand and not left_hand.is_reaching_cone and not left_hand.is_performing_trick:
 		var left_breath_offset = Vector3(breath_x * 0.3, (breath_y * 0.3) + retract_y, retract_z)
 		var balance_tilt_offset = 0.0
 		if left_hand.has_cone():

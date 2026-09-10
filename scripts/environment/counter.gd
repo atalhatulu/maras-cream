@@ -12,6 +12,7 @@ var current_page: int = 1
 func _ready() -> void:
 	_init_flavor_pages()
 	EventBus.tub_switch_interacted.connect(switch_flavor_page)
+	EventBus.upgrade_purchased.connect(func(_id, _lvl): _refresh_current_page())
 
 func _init_flavor_pages() -> void:
 	# 1. Sıra
@@ -45,3 +46,9 @@ func _apply_page(flavor_list: Array[FlavorData]) -> void:
 	for i in range(mini(tubs.size(), flavor_list.size())):
 		if tubs[i] and flavor_list[i]:
 			tubs[i].set_flavor(flavor_list[i])
+
+func _refresh_current_page() -> void:
+	if current_page == 1:
+		_apply_page(page_1_flavors)
+	else:
+		_apply_page(page_2_flavors)

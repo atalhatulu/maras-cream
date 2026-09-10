@@ -68,11 +68,11 @@ func _update_labels() -> void:
 
 func _on_day_started(day_num: int, target: int) -> void:
 	if day_label:
-		day_label.text = "Gün: %d [0/%d]" % [day_num, target]
+		day_label.text = "Gün: %d [0/%d] • %s" % [day_num, target, GameManager.current_daily_event_title]
 
 func _on_day_progress_updated(served: int, target: int) -> void:
 	if day_label:
-		day_label.text = "Gün: %d [%d/%d]" % [GameManager.current_day, served, target]
+		day_label.text = "Gün: %d [%d/%d] • %s" % [GameManager.current_day, served, target, GameManager.current_daily_event_title]
 
 func _on_money_changed(new_money: float, diff: float) -> void:
 	if money_label:
@@ -122,10 +122,15 @@ func _on_balance_updated(balance_ratio: float, current_angle_deg: float) -> void
 		balance_bar.value = (balance_ratio + 1.0) * 50.0
 		
 	if balance_label:
-		if abs(current_angle_deg) > 2.0:
+		if abs(balance_ratio) >= 0.72:
+			balance_label.text = "⚠️ KRİTİK DENGE! (%.1f°)" % current_angle_deg
+			balance_label.modulate = Color(1.0, 0.3, 0.3, 1.0)
+		elif abs(current_angle_deg) > 2.0:
 			balance_label.text = "Denge [A / D] (%.1f°)" % current_angle_deg
+			balance_label.modulate = Color.WHITE
 		else:
 			balance_label.text = "Denge [A / D]"
+			balance_label.modulate = Color.WHITE
 
 func _on_scoop_dive_progress(progress_ratio: float) -> void:
 	if scoop_gesture_container and scoop_gauge_bar:

@@ -119,6 +119,14 @@ func _simulate_balance_physics(delta: float) -> void:
 	var balance_ratio = clampf(current_angle_deg / effective_max_angle, -1.0, 1.0)
 	EventBus.cone_balance_updated.emit(balance_ratio, current_angle_deg)
 	
+	# Gerilim Tansiyonu: %72 ve üstü kritik açıda külah titremesi ve gerilim uyarısı
+	var tilt_severity = abs(balance_ratio)
+	if tilt_severity >= 0.72 and cone_pivot:
+		var jitter = (tilt_severity - 0.72) * 0.025
+		cone_pivot.position.x += randf_range(-jitter, jitter)
+		cone_pivot.position.z += randf_range(-jitter, jitter)
+		EventBus.cone_critical_tilt.emit(tilt_severity)
+	
 	if abs(current_angle_deg) >= effective_max_angle:
 		_trigger_cone_drop()
 
@@ -449,10 +457,50 @@ func _clear_scoop_meshes() -> void:
 	_scoop_vels.clear()
 	_scoop_angles.clear()
 
+var is_performing_trick: bool = false
+var current_trick_count: int = 0
+
+func perform_trick() -> bool:
+	if not has_cone() or stacked_flavors.is_empty() or is_performing_trick or is_reaching_cone:
+		return false
+		
+	is_performing_trick = true
+	current_trick_count += 1
+	
+	var trick_multiplier = 1.0 + (float(current_trick_count) * 0.35)
+	EventBus.maras_trick_performed.emit(current_trick_count, trick_multiplier)
+	EventBus.notification_requested.emit("MARAŞ ŞOVU! #%d (+%%%d Bahşiş)" % [current_trick_count, int((trick_multiplier - 1.0) * 100)], 1.3)
+	
+	var forward_pos = _base_local_pos + Vector3(0.08, 0.04, -0.36)
+	var hide_pos = _base_local_pos + Vector3(-0.16, -0.06, 0.22)
+	var hide_rot = Vector3(deg_to_rad(12.0), deg_to_rad(35.0), -deg_to_rad(15.0))
+	
+	var tween = create_tween().set_trans(Tween.TRANS_CUBIC)
+	# 1. Külahı müşteriye doğru uzat
+	tween.set_parallel(true)
+	tween.tween_property(self, "position", forward_pos, 0.15).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "rotation", Vector3(deg_to_rad(8), 0, 0), 0.15)
+	
+	# 2. Son anda aniden geri kaçır ve arkaya sakla
+	tween.chain().set_parallel(true)
+	tween.tween_property(self, "position", hide_pos, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "rotation", hide_rot, 0.18).set_ease(Tween.EASE_OUT)
+	
+	# 3. Normal pozisyona geri dön
+	tween.chain().set_parallel(true)
+	tween.tween_property(self, "position", _base_local_pos, 0.26).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "rotation", Vector3.ZERO, 0.26).set_ease(Tween.EASE_OUT)
+	
+	tween.chain().tween_callback(func():
+		is_performing_trick = false
+	)
+	return true
+
 func reset_cone() -> void:
 	state = ConeState.NONE
 	stacked_flavors.clear()
 	applied_toppings.clear()
+	current_trick_count = 0
 	current_angle_deg = 0.0
 	angular_velocity = 0.0
 	_current_input_torque = 0.0

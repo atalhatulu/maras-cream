@@ -5,7 +5,6 @@
 [ext_resource type="PackedScene" path="res://scenes/customer/customer.tscn" id="3_customer_scene"]
 [ext_resource type="Script" uid="uid://bab5ngkystcow" path="res://scripts/customer/customer_manager.gd" id="4_customer_mgr"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="5_hud"]
-[ext_resource type="Script" uid="uid://bvp77odn6ggjj" path="res://scripts/core/audio_manager.gd" id="6_audio_mgr"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_stone_street"]
 sky_top_color = Color(0.06, 0.1, 0.22, 1)
@@ -593,6 +592,3 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.6)
 
 [node name="HUD" parent="." unique_id=1466307580 instance=ExtResource("5_hud")]
-
-[node name="AudioManager" type="Node" parent="." unique_id=987654321]
-script = ExtResource("6_audio_mgr")

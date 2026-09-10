@@ -9,6 +9,7 @@ enum State {
 	ORDER_READY,
 	DELIVERED,
 	SATISFIED,
+	COMPLETED,
 	DISAPPOINTED,
 	TIMEOUT,
 	LEAVING
@@ -46,6 +47,7 @@ func _ready() -> void:
 	EventBus.cone_dropped.connect(_on_cone_dropped)
 	EventBus.ice_cream_added.connect(_on_ice_cream_added)
 	EventBus.order_progress_updated.connect(_on_order_progress_updated)
+	EventBus.maras_trick_performed.connect(_on_maras_trick_performed)
 
 func apply_archetype(arch: CustomerArchetype) -> void:
 	archetype = arch
@@ -281,6 +283,50 @@ func _on_order_progress_updated(progress_info: Dictionary) -> void:
 		if speech_label_3d:
 			speech_label_3d.text = "Bu benim istediğim aroma değil..."
 			speech_label_3d.modulate = Color(1.0, 0.35, 0.35, 1.0)
+
+func _on_maras_trick_performed(trick_count: int, _multiplier: float) -> void:
+	if state == State.LEAVING or state == State.TIMEOUT or state == State.COMPLETED:
+		return
+		
+	# Müşterinin külahı yakalamaya çalışıp elini uzatması ve kaçırması
+	if hands_pivot:
+		var reach_tween = create_tween().set_trans(Tween.TRANS_CUBIC)
+		reach_tween.tween_property(hands_pivot, "position:z", 0.30, 0.12).set_ease(Tween.EASE_OUT)
+		reach_tween.tween_property(hands_pivot, "position:z", -0.04, 0.15).set_ease(Tween.EASE_OUT)
+		reach_tween.tween_property(hands_pivot, "position:z", 0.0, 0.12)
+		
+	if head_pivot:
+		var head_tween = create_tween().set_trans(Tween.TRANS_BACK)
+		head_tween.tween_property(head_pivot, "rotation:x", -deg_to_rad(14.0), 0.12).set_ease(Tween.EASE_OUT)
+		head_tween.tween_property(head_pivot, "rotation:x", 0.0, 0.18)
+		
+	if speech_label_3d:
+		if archetype and archetype.type == CustomerArchetype.ArchetypeType.BUSINESS:
+			if trick_count == 1:
+				speech_label_3d.text = "Haha, klasik numara!"
+				speech_label_3d.modulate = Color(1.0, 0.85, 0.3, 1.0)
+			else:
+				speech_label_3d.text = "Lütfen acele edelim, toplantım var!"
+				speech_label_3d.modulate = Color(1.0, 0.4, 0.4, 1.0)
+				if current_order:
+					current_order.current_score = max(current_order.min_score, current_order.current_score - 0.35)
+		elif archetype and archetype.type == CustomerArchetype.ArchetypeType.CHILD:
+			speech_label_3d.text = "Aaa! Külah nereye gitti?! 😂"
+			speech_label_3d.modulate = Color(0.3, 0.95, 0.5, 1.0)
+			_freeze_timer = 2.5
+			_pop_reaction(0.08)
+		elif archetype and archetype.type == CustomerArchetype.ArchetypeType.TOURIST:
+			speech_label_3d.text = "İşte bu! Gerçek Maraş şovu! 👏"
+			speech_label_3d.modulate = Color(1.0, 0.8, 0.2, 1.0)
+			_freeze_timer = 2.0
+			_pop_reaction(0.06)
+		elif archetype and archetype.type == CustomerArchetype.ArchetypeType.INFLUENCER:
+			speech_label_3d.text = "Harika bir klip oldu! Devam et! 📱"
+			speech_label_3d.modulate = Color(0.9, 0.3, 1.0, 1.0)
+			_freeze_timer = 2.0
+		else:
+			speech_label_3d.text = "Vay canına, yakalayamadım! 😄"
+			speech_label_3d.modulate = Color(1.0, 0.85, 0.3, 1.0)
 
 func _pop_reaction(amount: float) -> void:
 	if visual_pivot:
