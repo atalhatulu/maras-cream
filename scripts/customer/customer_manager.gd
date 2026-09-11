@@ -17,6 +17,8 @@ var _archetypes: Array[CustomerArchetype] = []
 var _spawn_timer: SceneTreeTimer = null
 var _last_archetype_type: int = -1
 var _active_trick_count: int = 0
+var _active_flip_count: int = 0
+var _active_clutch_saved: bool = false
 
 func _ready() -> void:
 	_init_archetypes()
@@ -30,6 +32,8 @@ func _ready() -> void:
 	EventBus.customer_left.connect(_on_customer_left)
 	EventBus.customer_arrived.connect(_on_customer_arrived)
 	EventBus.maras_trick_performed.connect(func(cnt, _mult): _active_trick_count = cnt)
+	EventBus.cone_flipped.connect(func(is_flip): if is_flip: _active_flip_count += 1)
+	EventBus.clutch_catch_succeeded.connect(func(): _active_clutch_saved = true)
 	
 	if GameManager.can_spawn_customer():
 		_schedule_next_customer(1.0)
@@ -373,6 +377,9 @@ func _on_order_delivery_attempted() -> void:
 func _on_cone_discarded() -> void:
 	_last_cone_flavors.clear()
 	_last_cone_toppings.clear()
+	_active_trick_count = 0
+	_active_flip_count = 0
+	_active_clutch_saved = false
 	_is_order_ready_to_deliver = false
 	if active_order and active_customer:
 		var empty_flavors: Array[FlavorData] = []
@@ -383,6 +390,9 @@ func _on_cone_discarded() -> void:
 func _on_cone_dropped() -> void:
 	_last_cone_flavors.clear()
 	_last_cone_toppings.clear()
+	_active_trick_count = 0
+	_active_flip_count = 0
+	_active_clutch_saved = false
 	_is_order_ready_to_deliver = false
 	if active_order and active_customer:
 		var empty_flavors: Array[FlavorData] = []
@@ -431,6 +441,19 @@ func _complete_active_order(progress_info: Dictionary = {}) -> void:
 		extra_bonus += trick_bonus
 		bonus_text += " (🎭 Maraş Şovu x%d: +$%.2f!)" % [_active_trick_count, trick_bonus]
 		_active_trick_count = 0
+		
+	if _active_flip_count > 0:
+		var flip_bonus = float(_active_flip_count) * 4.50
+		extra_bonus += flip_bonus
+		bonus_text += " (🔄 Yerçekimi Şovu x%d: +$%.2f!)" % [_active_flip_count, flip_bonus]
+		_active_flip_count = 0
+		
+	if _active_clutch_saved:
+		var clutch_bonus = 5.00
+		extra_bonus += clutch_bonus
+		bonus_text += " (⚡ Kurtarma Bonusu: +$%.2f!)" % clutch_bonus
+		GameManager.update_reputation(1.5)
+		_active_clutch_saved = false
 			
 	var total_earned = base_price + tip_amount + extra_bonus
 	

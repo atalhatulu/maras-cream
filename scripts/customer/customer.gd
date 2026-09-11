@@ -48,6 +48,9 @@ func _ready() -> void:
 	EventBus.ice_cream_added.connect(_on_ice_cream_added)
 	EventBus.order_progress_updated.connect(_on_order_progress_updated)
 	EventBus.maras_trick_performed.connect(_on_maras_trick_performed)
+	EventBus.cone_flipped.connect(_on_cone_flipped)
+	EventBus.clutch_window_started.connect(_on_clutch_window_started)
+	EventBus.clutch_catch_succeeded.connect(_on_clutch_catch_succeeded)
 
 func apply_archetype(arch: CustomerArchetype) -> void:
 	archetype = arch
@@ -327,6 +330,65 @@ func _on_maras_trick_performed(trick_count: int, _multiplier: float) -> void:
 		else:
 			speech_label_3d.text = "Vay canına, yakalayamadım! 😄"
 			speech_label_3d.modulate = Color(1.0, 0.85, 0.3, 1.0)
+
+func _on_cone_flipped(is_flipped: bool) -> void:
+	if state == State.LEAVING or state == State.TIMEOUT or state == State.COMPLETED:
+		return
+		
+	if is_flipped:
+		_freeze_timer = 3.2
+		_pop_reaction(0.12)
+		if head_pivot:
+			head_pivot.rotation.x = -deg_to_rad(16.0)
+			
+		if speech_label_3d:
+			if archetype and archetype.type == CustomerArchetype.ArchetypeType.TOURIST:
+				speech_label_3d.text = "Aman tanrım! Dökülmüyor! 😮"
+				speech_label_3d.modulate = Color(1.0, 0.85, 0.2, 1.0)
+			elif archetype and archetype.type == CustomerArchetype.ArchetypeType.CHILD:
+				speech_label_3d.text = "İnanamıyorum! Sihirbaz mısın sen?! 🤩"
+				speech_label_3d.modulate = Color(0.3, 0.95, 0.5, 1.0)
+			elif archetype and archetype.type == CustomerArchetype.ArchetypeType.GOURMET:
+				speech_label_3d.text = "İşte hakiki Maraş kıvamı ve elastikiyeti!"
+				speech_label_3d.modulate = Color(0.9, 0.9, 0.7, 1.0)
+			elif archetype and archetype.type == CustomerArchetype.ArchetypeType.INFLUENCER:
+				speech_label_3d.text = "Bu kare rekor kırar! İnanılmaz! 🔥"
+				speech_label_3d.modulate = Color(0.9, 0.3, 1.0, 1.0)
+			elif archetype and archetype.type == CustomerArchetype.ArchetypeType.BUSINESS:
+				speech_label_3d.text = "Vay canına, gerçekten dökülmedi!"
+				speech_label_3d.modulate = Color(1.0, 0.85, 0.3, 1.0)
+			else:
+				speech_label_3d.text = "Düşecek sandım! Harika kıvam! 👏"
+				speech_label_3d.modulate = Color(1.0, 0.85, 0.3, 1.0)
+	else:
+		_pop_reaction(0.06)
+
+func _on_clutch_window_started(_fall_direction: float, _duration: float) -> void:
+	if state == State.LEAVING or state == State.TIMEOUT or state == State.COMPLETED:
+		return
+		
+	if hands_pivot:
+		var panic_tween = create_tween().set_trans(Tween.TRANS_ELASTIC)
+		panic_tween.tween_property(hands_pivot, "position:z", 0.18, 0.08).set_ease(Tween.EASE_OUT)
+		
+	if speech_label_3d:
+		speech_label_3d.text = "DÜŞÜYOR! DİKKAT ET! 😱"
+		speech_label_3d.modulate = Color(1.0, 0.25, 0.25, 1.0)
+
+func _on_clutch_catch_succeeded() -> void:
+	if state == State.LEAVING or state == State.TIMEOUT or state == State.COMPLETED:
+		return
+		
+	_freeze_timer = 2.4
+	_pop_reaction(0.14)
+	
+	if hands_pivot:
+		var relax_tween = create_tween().set_trans(Tween.TRANS_BACK)
+		relax_tween.tween_property(hands_pivot, "position:z", 0.0, 0.18).set_ease(Tween.EASE_OUT)
+		
+	if speech_label_3d:
+		speech_label_3d.text = "OH BE! Son anda kurtardın! 👏🎉"
+		speech_label_3d.modulate = Color(0.35, 1.0, 0.45, 1.0)
 
 func _pop_reaction(amount: float) -> void:
 	if visual_pivot:

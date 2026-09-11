@@ -49,6 +49,14 @@ var _scoop_vels: Array[Vector3] = []
 var _scoop_angles: Array[float] = []
 var current_balance_tolerance: float = 1.0
 
+# Şov ve Kurtarma Durumları
+var is_flipping: bool = false
+var is_clutch_active: bool = false
+var clutch_used_this_cone: bool = false
+var _clutch_timer: float = 0.0
+var _clutch_fall_dir: float = 0.0
+const CLUTCH_WINDOW_DURATION: float = 0.52
+
 func _ready() -> void:
 	_base_local_pos = position
 	cone_pivot.visible = false
@@ -81,6 +89,30 @@ func _process(delta: float) -> void:
 		EventBus.cone_balance_updated.emit(0.0, 0.0)
 
 func _simulate_balance_physics(delta: float) -> void:
+	if is_flipping:
+		current_angle_deg = 0.0
+		angular_velocity = 0.0
+		_current_input_torque = 0.0
+		EventBus.cone_balance_updated.emit(0.0, 0.0)
+		return
+		
+	if is_clutch_active:
+		_clutch_timer -= delta
+		var jitter = randf_range(-0.015, 0.015)
+		if cone_pivot:
+			cone_pivot.position.x += jitter
+			
+		var clutch_input = Input.get_axis("balance_left", "balance_right")
+		if clutch_input * _clutch_fall_dir < -0.30:
+			_clutch_recover()
+			return
+			
+		if _clutch_timer <= 0.0:
+			is_clutch_active = false
+			EventBus.clutch_catch_failed.emit()
+			_trigger_cone_drop()
+		return
+
 	_physics_time += delta
 	var scoop_count = stacked_flavors.size()
 	
@@ -128,7 +160,10 @@ func _simulate_balance_physics(delta: float) -> void:
 		EventBus.cone_critical_tilt.emit(tilt_severity)
 	
 	if abs(current_angle_deg) >= effective_max_angle:
-		_trigger_cone_drop()
+		if not clutch_used_this_cone and scoop_count >= 2:
+			_start_clutch_window(1.0 if current_angle_deg > 0 else -1.0)
+		else:
+			_trigger_cone_drop()
 
 func _simulate_scoops_secondary_motion(delta: float) -> void:
 	var count = stacked_flavors.size()
@@ -234,6 +269,10 @@ func take_cone() -> void:
 	current_angle_deg = 0.0
 	angular_velocity = 0.0
 	_current_input_torque = 0.0
+	is_flipping = false
+	is_clutch_active = false
+	clutch_used_this_cone = false
+	_clutch_timer = 0.0
 	stacked_flavors.clear()
 	applied_toppings.clear()
 	_clear_scoop_meshes()
@@ -496,6 +535,62 @@ func perform_trick() -> bool:
 	)
 	return true
 
+func flip_cone() -> bool:
+	if not has_cone() or stacked_flavors.is_empty() or is_flipping or is_performing_trick or is_reaching_cone or is_clutch_active:
+		return false
+		
+	var stability_angle_bonus = GameManager.get_upgrade_effect("cone_stability", "angle_tolerance")
+	var effective_max_angle = (max_safe_angle_deg + stability_angle_bonus) * current_balance_tolerance
+	
+	if abs(current_angle_deg) > effective_max_angle * 0.72:
+		EventBus.notification_requested.emit("Kule çok eğik, ters çeviremezsin!", 1.2)
+		return false
+		
+	is_flipping = true
+	EventBus.cone_flipped.emit(true)
+	EventBus.notification_requested.emit("MARAŞ YERÇEKİMİ ŞOVU! 🔄 (Dökülmüyor!)", 1.4)
+	
+	current_angle_deg = 0.0
+	angular_velocity = 0.0
+	
+	var flip_lift_pos = _base_local_pos + Vector3(0.04, 0.12, -0.22)
+	var tween = create_tween().set_trans(Tween.TRANS_QUAD)
+	
+	tween.set_parallel(true)
+	tween.tween_property(self, "position", flip_lift_pos, 0.20).set_ease(Tween.EASE_OUT)
+	tween.tween_property(cone_pivot, "rotation:z", deg_to_rad(180.0), 0.22).set_ease(Tween.EASE_OUT)
+	
+	tween.chain().tween_interval(0.75)
+	
+	tween.chain().set_parallel(true)
+	tween.tween_property(self, "position", _base_local_pos, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(cone_pivot, "rotation:z", 0.0, 0.22).set_ease(Tween.EASE_OUT)
+	
+	tween.chain().tween_callback(func():
+		is_flipping = false
+		EventBus.cone_flipped.emit(false)
+	)
+	return true
+
+func _start_clutch_window(fall_dir: float) -> void:
+	if is_clutch_active or state == ConeState.DROPPED or state == ConeState.DISCARDED:
+		return
+		
+	is_clutch_active = true
+	clutch_used_this_cone = true
+	_clutch_fall_dir = fall_dir
+	_clutch_timer = CLUTCH_WINDOW_DURATION
+	angular_velocity = 0.0
+	EventBus.clutch_window_started.emit(fall_dir, CLUTCH_WINDOW_DURATION)
+
+func _clutch_recover() -> void:
+	is_clutch_active = false
+	_clutch_timer = 0.0
+	angular_velocity = -_clutch_fall_dir * 42.0
+	current_angle_deg = move_toward(current_angle_deg, 0.0, 20.0)
+	EventBus.clutch_catch_succeeded.emit()
+	EventBus.notification_requested.emit("⚡ HARİKA REFLEKS! KULE HAVADA KURTARILDI!", 1.6)
+
 func reset_cone() -> void:
 	state = ConeState.NONE
 	stacked_flavors.clear()
@@ -504,10 +599,15 @@ func reset_cone() -> void:
 	current_angle_deg = 0.0
 	angular_velocity = 0.0
 	_current_input_torque = 0.0
+	is_flipping = false
+	is_clutch_active = false
+	clutch_used_this_cone = false
+	_clutch_timer = 0.0
 	_clear_scoop_meshes()
 	if cone_pivot:
 		cone_pivot.visible = false
 		cone_pivot.position = Vector3(0, 0.05, -0.05)
+		cone_pivot.rotation = Vector3.ZERO
 	_notify_state_changed()
 
 func has_cone() -> bool:

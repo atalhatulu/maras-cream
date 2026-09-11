@@ -33,6 +33,10 @@ signal cone_state_changed(state_name: String, current_count: int, flavors: Array
 signal cone_balance_updated(balance_ratio: float, current_angle_deg: float)
 signal cone_critical_tilt(tilt_ratio: float)
 signal maras_trick_performed(trick_count: int, multiplier: float)
+signal cone_flipped(is_flipped: bool)
+signal clutch_window_started(fall_direction: float, duration: float)
+signal clutch_catch_succeeded
+signal clutch_catch_failed
 
 # --- MÜŞTERİ VE SİPARİŞ SİSTEMİ ---
 signal customer_arrived(customer_node: Node3D, order: OrderData)

@@ -27,6 +27,7 @@ extends Control
 
 var _current_active_order: OrderData = null
 var _latest_progress_info: Dictionary = {}
+var _is_clutch_ui_active: bool = false
 
 func _ready() -> void:
 	if scoop_gesture_container:
@@ -43,6 +44,14 @@ func _ready() -> void:
 	EventBus.notification_requested.connect(_on_notification_requested)
 	EventBus.scoop_dive_progress.connect(_on_scoop_dive_progress)
 	EventBus.interaction_target_changed.connect(_on_interaction_target_changed)
+	
+	# Şov ve Kurtarma Sinyalleri
+	EventBus.clutch_window_started.connect(_on_clutch_window_started)
+	EventBus.clutch_catch_succeeded.connect(_on_clutch_catch_succeeded)
+	EventBus.clutch_catch_failed.connect(_on_clutch_catch_failed)
+	EventBus.cone_flipped.connect(_on_cone_flipped)
+	EventBus.cone_dropped.connect(func(): _is_clutch_ui_active = false)
+	EventBus.cone_reset.connect(func(): _is_clutch_ui_active = false)
 	
 	# Gün Döngüsü Sinyalleri
 	EventBus.day_started.connect(_on_day_started)
@@ -121,6 +130,9 @@ func _on_balance_updated(balance_ratio: float, current_angle_deg: float) -> void
 	if balance_bar:
 		balance_bar.value = (balance_ratio + 1.0) * 50.0
 		
+	if _is_clutch_ui_active:
+		return
+		
 	if balance_label:
 		if abs(balance_ratio) >= 0.72:
 			balance_label.text = "⚠️ KRİTİK DENGE! (%.1f°)" % current_angle_deg
@@ -131,6 +143,30 @@ func _on_balance_updated(balance_ratio: float, current_angle_deg: float) -> void
 		else:
 			balance_label.text = "Denge [A / D]"
 			balance_label.modulate = Color.WHITE
+
+func _on_clutch_window_started(fall_direction: float, _duration: float) -> void:
+	_is_clutch_ui_active = true
+	if balance_label:
+		if fall_direction > 0.0:
+			balance_label.text = "🚨 DÜŞÜYOR! SOLA BAS! [A]"
+		else:
+			balance_label.text = "🚨 DÜŞÜYOR! SAĞA BAS! [D]"
+		balance_label.modulate = Color(1.0, 0.15, 0.15, 1.0)
+
+func _on_clutch_catch_succeeded() -> void:
+	if balance_label:
+		balance_label.text = "✨ KULE HAVADA KURTARILDI!"
+		balance_label.modulate = Color(0.3, 1.0, 0.4, 1.0)
+	var timer = get_tree().create_timer(1.2)
+	timer.timeout.connect(func(): _is_clutch_ui_active = false)
+
+func _on_clutch_catch_failed() -> void:
+	_is_clutch_ui_active = false
+
+func _on_cone_flipped(is_flipped: bool) -> void:
+	if is_flipped and balance_label:
+		balance_label.text = "🔄 TERS ÇEVİRME ŞOVU!"
+		balance_label.modulate = Color(0.4, 0.85, 1.0, 1.0)
 
 func _on_scoop_dive_progress(progress_ratio: float) -> void:
 	if scoop_gesture_container and scoop_gauge_bar:

@@ -97,6 +97,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 			EventBus.place_on_cone_attempted.emit()
 			return
+			
+		elif event.is_action_pressed("flip_cone"):
+			if left_hand and left_hand.has_cone():
+				left_hand.flip_cone()
+				return
 
 	if is_mouse_captured and event is InputEventMouseMotion:
 		if _is_active_scoop_dive and right_hand and right_hand.is_diving:
