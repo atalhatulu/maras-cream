@@ -1,5 +1,7 @@
 extends Node
 
+const DailyEvents = preload("res://scripts/data/daily_event_rules.gd")
+
 var checks := 0
 var failures: Array[String] = []
 var main: Node3D
@@ -35,7 +37,7 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			capture_dir = arg.trim_prefix("--capture=")
-	get_tree().create_timer(180.0).timeout.connect(func():
+	get_tree().create_timer(300.0).timeout.connect(func():
 		push_error("Regression watchdog: tests did not finish")
 		get_tree().quit(2)
 	)
@@ -45,6 +47,7 @@ func _run() -> void:
 	seed(12345)
 	_test_reward_math()
 	_test_show_policy()
+	_test_daily_event_rules()
 	EventBus.reward_quote_updated.connect(func(quote): last_quote = quote)
 	GameManager.day_active = false
 	main = load("res://scenes/main/main.tscn").instantiate()
@@ -56,7 +59,9 @@ func _run() -> void:
 	hand = main.get_node("PlayerRig/Camera3D/LeftHandRig")
 	hud = main.get_node("HUD")
 	await get_tree().process_frame
+	_test_event_orders_and_balance()
 	await _test_lifecycle()
+	await _test_event_service()
 	await _test_full_day()
 	print("SHOW REGRESSION: %d checks, %d failures" % [checks, failures.size()])
 	for failure in failures:
@@ -364,3 +369,171 @@ func capture(filename: String) -> void:
 	var screenshot := get_viewport().get_texture().get_image()
 	var error := screenshot.save_png(capture_dir.path_join(filename + ".png"))
 	check(error == OK, "Screenshot saved: " + filename)
+
+func _test_daily_event_rules() -> void:
+	var introductions := ["NORMAL", "HEATWAVE", "TOURIST_BUS", "CHILDRENS_DAY", "GOURMET_VISIT"]
+	for day in range(1, 6):
+		check(DailyEvents.pick_for_day(day, "NORMAL") == introductions[day - 1], "Day %d introduces its intended event" % day)
+	var previous := "GOURMET_VISIT"
+	var no_repeats := true
+	for day in range(6, 100):
+		var event_id := DailyEvents.pick_for_day(day, previous)
+		no_repeats = no_repeats and event_id != previous and DailyEvents.EVENTS.has(event_id)
+		previous = event_id
+	check(no_repeats, "Later events vary without consecutive repeats")
+	var tourist := archetype(CustomerArchetype.ArchetypeType.TOURIST)
+	tourist.tip_multiplier = 1.5
+	var child := archetype(CustomerArchetype.ArchetypeType.CHILD)
+	child.topping_bonus = 4.0
+	var gourmet := archetype(CustomerArchetype.ArchetypeType.GOURMET)
+	var order := OrderData.new()
+	order.flavors.assign([GameManager.get_flavor_by_id("sade"), GameManager.get_flavor_by_id("cikolata")])
+	var quote := OrderReward.calculate(order, tourist, 5.0, 0.3, [], 0.0, "TOURIST_BUS")
+	close(quote.tip, 9.0, "Tourist event multiplies customer and upgraded tip together")
+	close(quote.total, 19.0, "Tourist cash total includes the event tip")
+	quote = OrderReward.calculate(order, tourist, 5.0, 0.3, [], 0.0, "CHILDRENS_DAY")
+	close(quote.tip, 7.2, "Children's event does not boost unrelated customer tips")
+	quote = OrderReward.calculate(order, child, 5.0, 0.0, [GameManager.get_topping_by_id("cikolata_sos")], 0.0, "CHILDRENS_DAY")
+	close(quote.gift, 6.0, "Children's event boosts one gift reward by fifty percent")
+	quote = OrderReward.calculate(order, child, 5.0, 0.0, [], 0.0, "CHILDRENS_DAY")
+	close(quote.gift, 0.0, "Required sauces alone do not generate a gift bonus")
+	order.current_score = 4.5
+	quote = OrderReward.calculate(order, gourmet, 5.0, 0.0, [], 0.0, "GOURMET_VISIT", true, true)
+	close(quote.event_bonus, 8.0, "Inspection accepts the exact 4.5 score boundary")
+	close(quote.event_reputation, 3.0, "Clean inspection awards three extra reputation")
+	for condition in [{"score": 4.49, "complete": true, "clean": true}, {"score": 5.0, "complete": false, "clean": true}, {"score": 5.0, "complete": true, "clean": false}]:
+		order.current_score = condition.score
+		quote = OrderReward.calculate(order, gourmet, 5.0, 0.0, [], 0.0, "GOURMET_VISIT", condition.complete, condition.clean)
+		close(quote.event_bonus + quote.event_reputation, 0.0, "Inspection requires score, complete recipe and clean service")
+	var show := ShowSession.new(tourist, "TOURIST_BUS")
+	close(show.complete("tease").amount, 3.5, "Tourist event does not inflate every repeated move")
+	close(show.complete("flip").amount, 7.5, "Tourist event rewards a new move with one extra dollar")
+	for i in range(50):
+		show.complete("catch")
+		show.complete("tease")
+		show.complete("flip")
+	check(show.awarded <= 18.0 and show.pause_used <= 6.0, "Tourist event retains finite show and patience limits")
+	show = ShowSession.new(tourist)
+	close(show.profile.cap, 16.0, "Event profile does not mutate later normal sessions")
+	close(show.profile.variety, 2.0, "Normal variety bonus survives event sessions")
+	show = ShowSession.new(child, "CHILDRENS_DAY")
+	for i in range(50):
+		for action in ["tease", "flip", "catch", "bell"]:
+			show.complete(action)
+	check(show.pause_used > 7.0 and show.pause_used <= 9.0, "Children get two extra finite seconds of entertainment")
+	for kind in CustomerArchetype.ArchetypeType.values():
+		var arch := archetype(kind)
+		close(DailyEvents.spawn_multiplier("TOURIST_BUS", arch), 3.2 if kind == CustomerArchetype.ArchetypeType.TOURIST else 1.0, "Tourist crowd weight affects only tourists")
+
+func _test_event_orders_and_balance() -> void:
+	var saved_toppings := GameManager.unlocked_topping_ids.duplicate()
+	GameManager.current_day = 4
+	GameManager.current_daily_event_id = "CHILDRENS_DAY"
+	var child := manager._archetypes[2]
+	var correct_sauces := true
+	for i in range(30):
+		var order := manager.generate_order_for_archetype(child)
+		correct_sauces = correct_sauces and order.toppings.size() == 2 and order.toppings[0].id != order.toppings[1].id
+	check(correct_sauces, "Children's event consistently generates two distinct unlocked sauces")
+	GameManager.unlocked_topping_ids.assign(["cikolata_sos"])
+	check(manager.generate_order_for_archetype(child).toppings.size() == 1, "One unlocked sauce stays a achievable recipe")
+	GameManager.unlocked_topping_ids.clear()
+	check(manager.generate_order_for_archetype(child).toppings.is_empty(), "No unlocked sauces never creates an impossible order")
+	GameManager.unlocked_topping_ids.assign(saved_toppings)
+	GameManager.current_daily_event_id = "NORMAL"
+	GameManager.current_day = 1
+	var bounded := true
+	for arch in manager._archetypes:
+		for i in range(10):
+			bounded = bounded and manager.generate_order_for_archetype(arch).flavors.size() <= 5
+	check(bounded, "Every customer respects the first-day five-scoop ceiling")
+	hand.take_cone()
+	hand._finalize_add_scoop(GameManager.get_flavor_by_id("sade"))
+	hand._finalize_add_scoop(GameManager.get_flavor_by_id("sade"))
+	var normal_angle := hand.get_safe_angle()
+	hand.current_angle_deg = normal_angle * 0.95
+	hand.angular_velocity = 0.0
+	hand._simulate_balance_physics(0.0)
+	check(not hand.is_clutch_active, "Normal day survives a tilt below its limit")
+	GameManager.current_daily_event_id = "HEATWAVE"
+	hand._simulate_balance_physics(0.0)
+	check(hand.is_clutch_active, "Same tilt triggers rescue under heatwave physics")
+	hand.reset_cone()
+	GameManager.current_daily_event_id = "NORMAL"
+
+func _start_event_day(day: int, arch: CustomerArchetype, target: int) -> bool:
+	manager._archetypes.assign([arch])
+	GameManager.start_day(day)
+	GameManager.day_customer_target = target
+	hud.get_node("DaySummaryDialog").visible = false
+	return await wait_for_customer()
+
+func _test_event_service() -> void:
+	var roster := manager._archetypes.duplicate()
+	var saved_toppings := GameManager.unlocked_topping_ids.duplicate()
+	if not await _start_event_day(3, roster[1], 1): return
+	check(hud.daily_event_label.text.contains("Turist") and hud.daily_event_label.text.contains("%25"), "Persistent daily card describes tourist rewards")
+	prepare_order()
+	check(hand.perform_trick(), "Tourist event tease starts")
+	await pause(1.3)
+	check(hand.flip_cone(), "Tourist event varied flip starts")
+	await pause(1.3)
+	close(manager.show_session.cone_bonus, 11.0, "Live tourist customer receives varied event show bonus")
+	await capture("04-tourist-event")
+	settle_quote("Tourist event")
+	await pause(5.0)
+	close(GameManager.get_day_summary().show_bonus, 11.0, "Tourist event show reaches daily accounting")
+	GameManager.unlocked_topping_ids.assign(["cikolata_sos", "patlayan_seker", "antep_fistigi"])
+	if not await _start_event_day(4, roster[2], 1): return
+	prepare_order()
+	for topping in GameManager.get_unlocked_toppings():
+		if not hand.applied_toppings.has(topping):
+			hand._on_topping_applied(topping)
+			break
+	close(manager.get_reward_quote().gift, 6.0, "Live child event quote includes enhanced gift")
+	check(manager.active_order.toppings.size() == 2, "Live child event requests two sauces")
+	await capture("05-childrens-event")
+	settle_quote("Children's event")
+	await pause(5.0)
+	GameManager.unlocked_topping_ids.assign(saved_toppings)
+	GameManager.current_reputation = 50.0
+	if not await _start_event_day(5, roster[3], 5): return
+	for index in range(5):
+		if index > 0 and not await wait_for_customer(): return
+		check(manager._clean_service, "Every new inspection begins with a clean service history")
+		prepare_order()
+		manager.active_customer._is_score_decaying = false
+		manager.active_order.current_score = 4.5 if index == 0 else 5.0
+		if index == 1:
+			manager.active_order.current_score = 4.49
+		elif index == 2 or index == 3:
+			if index == 2: hand._trigger_cone_drop()
+			else: hand.discard_cone_to_trash()
+			await pause(0.5)
+			prepare_order()
+			manager.active_order.current_score = 5.0
+			check(not manager._clean_service, "Replacement cone cannot erase an inspection mistake")
+		elif index == 4:
+			var money_before := GameManager.current_money
+			manager.active_customer._trigger_patience_timeout()
+			EventBus.order_delivery_attempted.emit()
+			close(GameManager.current_money, money_before, "Timed-out gourmet receives no event settlement")
+			continue
+		EventBus.customer_score_updated.emit(manager.active_order.current_score)
+		close(manager.get_reward_quote().event_bonus, 8.0 if index == 0 else 0.0, "Live inspection checks score and service history")
+		if index == 0:
+			check(hud.order_score_label.text.contains("Teftiş başarılı"), "Inspection eligibility is visible before payment")
+			await capture("06-inspection-quote")
+		var reputation_before := GameManager.current_reputation
+		settle_quote("Inspection order %d" % index)
+		close(GameManager.current_reputation - reputation_before, 6.0 if index == 0 else 3.0, "Inspection reputation is paid exactly once")
+	await pause(6.0)
+	var summary := GameManager.get_day_summary()
+	check(not GameManager.day_active and summary.failed_orders == 1, "Inspection event finishes with both success and failure")
+	close(summary.event_bonus, 8.0, "Only eligible inspection adds a cash premium to day report")
+	close(summary.event_reputation, 3.0, "Day report tracks awarded event reputation")
+	close(summary.final_money - GameManager.daily_start_money, summary.total_earned, "Event day total reconciles with bank")
+	check(hud.get_node("DaySummaryDialog").revenue_breakdown_label.text.contains("Teftiş Primi: $8.00"), "Event premium has its own summary row")
+	await capture("07-inspection-summary")
+	manager._archetypes.assign(roster)
+	hud.get_node("DaySummaryDialog").visible = false

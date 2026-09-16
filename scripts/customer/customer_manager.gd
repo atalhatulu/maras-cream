@@ -257,7 +257,7 @@ func generate_order_for_archetype(arch: CustomerArchetype) -> OrderData:
 	var target_min = maxi(day_min_scoop, arch_min)
 	var target_max = mini(day_max_scoop, arch_max)
 	if target_min > target_max:
-		target_max = target_min
+		target_min = target_max
 		
 	var scoop_count = randi_range(target_min, target_max)
 	var all_flavors = GameManager.get_unlocked_flavors()
