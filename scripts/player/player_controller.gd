@@ -244,7 +244,7 @@ func _get_tooltip_for_collider(col: Object) -> String:
 	if col is TrashCan:
 		return "[Sol Tık] Külahı Çöpe At"
 	if col is Customer or (col and col.is_in_group("customer")):
-		return "[E] Kuleyi Teslim Et"
+		return "Hareket bitince teslim edebilirsin." if left_hand and left_hand.is_action_busy() else "[E] Kuleyi Teslim Et"
 	if col and (col.is_in_group("cone_target") or col is LeftHandController):
 		return "[Sol Tık] Külaha Bırak"
 	return ""
@@ -264,7 +264,7 @@ func _update_hands_procedural_motion(delta: float) -> void:
 	var retract_z = down_pitch_ratio * 0.08
 	
 	# 1. SOL EL (KÜLAH): Fare hareketlerinden bağımsız, ekranda sabit ve stabil dayanak
-	if left_hand and not left_hand.is_reaching_cone and not left_hand.is_performing_trick:
+	if left_hand and not left_hand.is_action_busy():
 		var left_breath_offset = Vector3(breath_x * 0.3, (breath_y * 0.3) + retract_y, retract_z)
 		var balance_tilt_offset = 0.0
 		if left_hand.has_cone():

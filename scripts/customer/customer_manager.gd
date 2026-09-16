@@ -16,9 +16,10 @@ var _is_order_ready_to_deliver: bool = false
 var _archetypes: Array[CustomerArchetype] = []
 var _spawn_timer: SceneTreeTimer = null
 var _last_archetype_type: int = -1
-var _active_trick_count: int = 0
-var _active_flip_count: int = 0
-var _active_clutch_saved: bool = false
+var show_session: ShowSession = ShowSession.new()
+var _pending_show: String = ""
+var _hand_busy: bool = false
+var _clean_service: bool = true
 
 func _ready() -> void:
 	_init_archetypes()
@@ -27,13 +28,17 @@ func _ready() -> void:
 	EventBus.cone_state_changed.connect(_on_cone_state_changed)
 	EventBus.topping_added_to_cone.connect(_on_topping_added_to_cone)
 	EventBus.order_delivery_attempted.connect(_on_order_delivery_attempted)
-	EventBus.cone_discarded.connect(_on_cone_discarded)
-	EventBus.cone_dropped.connect(_on_cone_dropped)
 	EventBus.customer_left.connect(_on_customer_left)
 	EventBus.customer_arrived.connect(_on_customer_arrived)
-	EventBus.maras_trick_performed.connect(func(cnt, _mult): _active_trick_count = cnt)
-	EventBus.cone_flipped.connect(func(is_flip): if is_flip: _active_flip_count += 1)
-	EventBus.clutch_catch_succeeded.connect(func(): _active_clutch_saved = true)
+	EventBus.show_started.connect(_on_show_started)
+	EventBus.show_completed.connect(_on_show_completed)
+	EventBus.show_cancelled.connect(func(): _pending_show = "")
+	EventBus.hand_busy_changed.connect(func(busy): _hand_busy = busy)
+	EventBus.customer_unavailable.connect(_on_customer_unavailable)
+	EventBus.customer_score_updated.connect(func(_score): _publish_quote())
+	EventBus.upgrade_purchased.connect(func(_id, _level): _publish_quote())
+	EventBus.cone_dropped.connect(_on_cone_spoiled)
+	EventBus.cone_discarded.connect(_on_cone_spoiled)
 	
 	if GameManager.can_spawn_customer():
 		_schedule_next_customer(1.0)
@@ -174,13 +179,7 @@ func pick_weighted_archetype() -> CustomerArchetype:
 		if arch.type == _last_archetype_type:
 			w *= 0.35 # Arka arkaya aynı arketipin gelmesini %65 oranında azalt
 			
-		# Günün Olayı Çarpanı
-		if GameManager.current_daily_event_id == "TOURIST_BUS" and arch.type == CustomerArchetype.ArchetypeType.TOURIST:
-			w *= 3.2
-		elif GameManager.current_daily_event_id == "CHILDRENS_DAY" and arch.type == CustomerArchetype.ArchetypeType.CHILD:
-			w *= 3.2
-		elif GameManager.current_daily_event_id == "GOURMET_VISIT" and arch.type == CustomerArchetype.ArchetypeType.GOURMET:
-			w *= 3.2
+		w *= GameManager.DailyEvents.spawn_multiplier(GameManager.current_daily_event_id, arch)
 			
 		weights.append(w)
 		total_weight += w
@@ -205,9 +204,12 @@ func _spawn_next_customer() -> void:
 	var customer_inst = customer_scene.instantiate() as Customer
 	add_child(customer_inst)
 	active_customer = customer_inst
+	_pending_show = ""
+	_clean_service = true
 	_is_order_ready_to_deliver = false
 	
 	active_archetype = pick_weighted_archetype() if not _archetypes.is_empty() else null
+	show_session = ShowSession.new(active_archetype, GameManager.current_daily_event_id)
 	active_order = generate_order_for_archetype(active_archetype)
 	customer_inst.initialize(active_order, spawn_marker.global_position, counter_marker.global_position, active_archetype)
 
@@ -220,8 +222,10 @@ func _on_bell_rung(_combo: int) -> void:
 		else:
 			EventBus.notification_requested.emit("Bugünün tüm müşterileri servis edildi!", 1.5)
 	else:
-		active_customer.entertain_with_bell(3.5)
-		EventBus.notification_requested.emit("Müşteri şovdan keyif aldı! (+Sabır)", 1.2)
+		if _is_customer_receivable():
+			var result := show_session.complete("bell")
+			active_customer.react_to_show(result)
+			EventBus.notification_requested.emit(result.reaction, 1.2)
 
 func generate_order_for_archetype(arch: CustomerArchetype) -> OrderData:
 	var order = OrderData.new()
@@ -280,16 +284,17 @@ func generate_order_for_archetype(arch: CustomerArchetype) -> OrderData:
 	var top_chance = arch.topping_chance if arch else 0.70
 	var two_top_chance = arch.two_toppings_chance if arch else 0.30
 	var all_toppings = GameManager.get_unlocked_toppings()
+	var needs_two := GameManager.DailyEvents.wants_two_toppings(GameManager.current_daily_event_id, arch)
 	
-	if not all_toppings.is_empty() and randf() < top_chance:
+	if not all_toppings.is_empty() and (needs_two or randf() < top_chance):
 		var first_top = all_toppings.pick_random()
 		order.toppings.append(first_top)
 		
-		if randf() < two_top_chance and all_toppings.size() > 1:
-			var second_top = all_toppings.pick_random()
-			if second_top.id != first_top.id:
-				order.toppings.append(second_top)
-				order.order_type = OrderData.OrderType.TOPPING_FOCUS
+		if all_toppings.size() > 1 and (needs_two or randf() < two_top_chance):
+			var remaining := all_toppings.duplicate()
+			remaining.erase(first_top)
+			order.toppings.append(remaining.pick_random())
+			order.order_type = OrderData.OrderType.TOPPING_FOCUS
 				
 	# Sipariş Tipi Belirleme
 	if scoop_count >= 8:
@@ -300,16 +305,20 @@ func generate_order_for_archetype(arch: CustomerArchetype) -> OrderData:
 		order.order_type = OrderData.OrderType.MIXED
 		
 	# Zorluk Hesaplama
-	order.calculate_difficulty(arch.balance_tolerance if arch else 1.0)
+	order.calculate_difficulty((arch.balance_tolerance if arch else 1.0) * GameManager.get_balance_event_multiplier())
 	return order
 
 func _on_customer_arrived(customer: Node3D, order: OrderData) -> void:
 	if customer != active_customer or order != active_order:
 		return
 		
-	_evaluate_order_progress(_last_cone_flavors, _last_cone_toppings)
+	EventBus.show_context_changed.emit(true)
+	_evaluate_order_progress.call_deferred(_last_cone_flavors.duplicate(), _last_cone_toppings.duplicate())
 
-func _on_cone_state_changed(_state_name: String, _count: int, flavors: Array[FlavorData]) -> void:
+func _on_cone_state_changed(state_name: String, _count: int, flavors: Array[FlavorData]) -> void:
+	if state_name in ["NONE", "EMPTY", "DROPPED", "DISCARDED"]:
+		_clear_cone_progress()
+		return
 	_last_cone_flavors = flavors.duplicate()
 	
 	if active_order == null or active_customer == null:
@@ -331,6 +340,7 @@ func _evaluate_order_progress(flavors: Array[FlavorData], toppings: Array[Toppin
 		
 	var progress_info = active_order.check_progress(flavors, toppings)
 	EventBus.order_progress_updated.emit(progress_info)
+	_publish_quote()
 	
 	if progress_info.is_completed:
 		if not _is_order_ready_to_deliver:
@@ -352,6 +362,9 @@ func _on_order_delivery_attempted() -> void:
 		
 	if not _is_customer_receivable():
 		return
+	if _hand_busy:
+		EventBus.notification_requested.emit("Hareketi bitir, sonra teslim et.", 1.2)
+		return
 		
 	if _last_cone_flavors.is_empty():
 		EventBus.notification_requested.emit("Teslim edilecek bir dondurma yok!", 1.2)
@@ -360,7 +373,7 @@ func _on_order_delivery_attempted() -> void:
 	var progress_info = active_order.check_progress(_last_cone_flavors, _last_cone_toppings)
 	
 	if progress_info.is_completed:
-		_complete_active_order(progress_info)
+		_complete_active_order()
 	elif not progress_info.is_valid_so_far:
 		EventBus.notification_requested.emit("Hatalı dondurma aroması! Müşteri bunu kabul etmiyor.", 1.8)
 		if active_customer.speech_label_3d:
@@ -374,108 +387,54 @@ func _on_order_delivery_attempted() -> void:
 		if active_customer.speech_label_3d:
 			active_customer.speech_label_3d.text = "Dondurmam henüz hazır değil."
 
-func _on_cone_discarded() -> void:
+func _clear_cone_progress() -> void:
 	_last_cone_flavors.clear()
 	_last_cone_toppings.clear()
-	_active_trick_count = 0
-	_active_flip_count = 0
-	_active_clutch_saved = false
+	_pending_show = ""
+	show_session.lose_cone()
 	_is_order_ready_to_deliver = false
 	if active_order and active_customer:
-		var empty_flavors: Array[FlavorData] = []
-		var empty_toppings: Array[ToppingData] = []
-		var progress_info = active_order.check_progress(empty_flavors, empty_toppings)
-		EventBus.order_progress_updated.emit(progress_info)
+		_evaluate_order_progress(_last_cone_flavors, _last_cone_toppings)
 
-func _on_cone_dropped() -> void:
-	_last_cone_flavors.clear()
-	_last_cone_toppings.clear()
-	_active_trick_count = 0
-	_active_flip_count = 0
-	_active_clutch_saved = false
-	_is_order_ready_to_deliver = false
-	if active_order and active_customer:
-		var empty_flavors: Array[FlavorData] = []
-		var empty_toppings: Array[ToppingData] = []
-		var progress_info = active_order.check_progress(empty_flavors, empty_toppings)
-		EventBus.order_progress_updated.emit(progress_info)
+func _on_cone_spoiled() -> void:
+	if active_order and _is_customer_receivable():
+		_clean_service = false
+		_publish_quote()
 
-func _complete_active_order(progress_info: Dictionary = {}) -> void:
-	if active_order == null or active_customer == null:
+func _complete_active_order() -> void:
+	if active_order == null or not _is_customer_receivable() or _hand_busy or not GameManager.day_active:
 		return
-		
-	if not _is_customer_receivable():
+	var progress := active_order.check_progress(_last_cone_flavors, _last_cone_toppings)
+	if not progress.is_completed:
 		return
-		
-	var final_score = active_order.current_score
-	var extra_toppings: Array = progress_info.get("extra_toppings", [])
-	
-	# 1. Taban Fiyat Hesaplaması (Dinamik Fiyat * Top Sayısı + İstenen Sos Fiyatları)
-	var base_scoop_price = GameManager.get_base_scoop_price()
-	var base_price = float(active_order.flavors.size()) * base_scoop_price
-	for top in active_order.toppings:
-		base_price += top.extra_price
-		
-	# 2. Bahşiş Hesaplaması (Puan ve Arketip Çarpanı + Dükkan Bahşiş Upgrade'i)
-	var tip_mult = active_archetype.tip_multiplier if active_archetype else 1.0
-	var tip_upgrade_bonus = GameManager.get_upgrade_effect("tip_mastery", "tip_multiplier_bonus")
-	tip_mult += tip_upgrade_bonus
-	var tip_amount = (final_score / 5.0) * (base_price * 0.40) * tip_mult
-	
-	# 3. İkram / Ekstra Sos Bonusu & Maraş Şov Bonusu
-	var extra_bonus = 0.0
-	var bonus_text = ""
-	if not extra_toppings.is_empty():
-		var bonus_val = active_archetype.topping_bonus if active_archetype else 2.0
-		extra_bonus += bonus_val
-		if active_archetype and active_archetype.type == CustomerArchetype.ArchetypeType.CHILD:
-			bonus_text += " (🧒 İkram: +$%.2f!)" % bonus_val
-		elif active_archetype and active_archetype.type == CustomerArchetype.ArchetypeType.TOURIST:
-			GameManager.update_reputation(2.0)
-			bonus_text += " (📸 Sürpriz İkram: +$%.2f & +%%2 İtibar!)" % bonus_val
-		else:
-			bonus_text += " (İkram: +$%.2f)" % bonus_val
-			
-	if _active_trick_count > 0:
-		var trick_bonus = float(_active_trick_count) * 3.50
-		extra_bonus += trick_bonus
-		bonus_text += " (🎭 Maraş Şovu x%d: +$%.2f!)" % [_active_trick_count, trick_bonus]
-		_active_trick_count = 0
-		
-	if _active_flip_count > 0:
-		var flip_bonus = float(_active_flip_count) * 4.50
-		extra_bonus += flip_bonus
-		bonus_text += " (🔄 Yerçekimi Şovu x%d: +$%.2f!)" % [_active_flip_count, flip_bonus]
-		_active_flip_count = 0
-		
-	if _active_clutch_saved:
-		var clutch_bonus = 5.00
-		extra_bonus += clutch_bonus
-		bonus_text += " (⚡ Kurtarma Bonusu: +$%.2f!)" % clutch_bonus
-		GameManager.update_reputation(1.5)
-		_active_clutch_saved = false
-			
-	var total_earned = base_price + tip_amount + extra_bonus
-	
-	# 4. TEK MERKEZDEN GameManager'a Kayıt
-	GameManager.record_order_success(base_price, tip_amount, extra_bonus)
+	var quote := get_reward_quote()
+	var final_score := active_order.current_score
+	EventBus.show_context_changed.emit(false)
+	GameManager.record_order_success(quote.base, quote.tip, quote.gift, quote.show, quote.event_bonus, quote.event_reputation)
 	if active_archetype:
 		GameManager.update_reputation(active_archetype.reputation_bonus)
-		
-	# 5. Müşteriyi Tamamla ve Sinyal Yay
+		if quote.gift > 0.0 and active_archetype.type == CustomerArchetype.ArchetypeType.TOURIST:
+			GameManager.update_reputation(2.0)
+	if show_session.catch_rewarded:
+		GameManager.update_reputation(1.5)
 	active_customer.complete_order(final_score)
 	EventBus.order_completed.emit(active_order, final_score)
-	EventBus.notification_requested.emit("Kule Teslim Edildi! +$%.2f (Puan: %.2f)%s" % [total_earned, final_score, bonus_text], 2.5)
-	
-	# 6. Sol Eldeki Külahı Sıfırla
-	EventBus.cone_reset.emit()
+	EventBus.notification_requested.emit("Teslim edildi! +$%.2f • Bahşiş $%.2f • İkram $%.2f • Şov $%.2f" % [quote.total, quote.tip, quote.gift, quote.show], 3.0)
+	if quote.event_bonus > 0.0:
+		EventBus.notification_requested.emit("Teftiş başarılı! Teslim +$%.2f • Prim $%.2f • İtibar +%.0f" % [quote.total, quote.event_bonus, quote.event_reputation], 3.0)
 	active_order = null
 	active_archetype = null
-	_last_cone_flavors.clear()
-	_last_cone_toppings.clear()
-	_is_order_ready_to_deliver = false
+	_pending_show = ""
+	EventBus.cone_reset.emit()
 
-func _on_customer_left(_customer: Node3D) -> void:
+func _on_customer_left(customer: Node3D) -> void:
+	if customer != active_customer:
+		return
+	EventBus.show_context_changed.emit(false)
+	_pending_show = ""
+	show_session = ShowSession.new()
+	if active_order != null:
+		EventBus.cone_reset.emit()
 	active_customer = null
 	active_order = null
 	active_archetype = null
@@ -488,3 +447,43 @@ func _on_customer_left(_customer: Node3D) -> void:
 	
 	if GameManager.can_spawn_customer():
 		_schedule_next_customer(next_customer_delay)
+
+func _on_customer_unavailable(customer: Node3D) -> void:
+	if customer != active_customer:
+		return
+	_pending_show = ""
+	show_session.lose_cone()
+	EventBus.show_context_changed.emit(false)
+	_publish_quote()
+
+func _on_show_started(kind: String) -> void:
+	if _is_customer_receivable() and active_order and not _last_cone_flavors.is_empty():
+		_pending_show = kind
+
+func _on_show_completed(kind: String) -> void:
+	if kind != _pending_show or not _is_customer_receivable() or active_order == null:
+		return
+	_pending_show = ""
+	var progress := active_order.check_progress(_last_cone_flavors, _last_cone_toppings)
+	var result := show_session.complete(kind, progress.is_completed, active_order.current_score)
+	if result.is_empty():
+		return
+	active_customer.react_to_show(result)
+	EventBus.notification_requested.emit("Şov bonusu +$%.2f • Biriken $%.2f\n%s" % [result.amount, result.total, result.reaction], 2.0)
+	_publish_quote()
+
+func get_reward_quote() -> Dictionary:
+	if active_order == null or not _is_customer_receivable():
+		return {}
+	var progress := active_order.check_progress(_last_cone_flavors, _last_cone_toppings)
+	var quote := OrderReward.calculate(active_order, active_archetype,
+		GameManager.get_base_scoop_price(), GameManager.get_upgrade_effect("tip_mastery", "tip_multiplier_bonus"),
+		progress.extra_toppings, show_session.cone_bonus, GameManager.current_daily_event_id,
+		progress.is_completed, _clean_service)
+	quote["hint"] = show_session.profile.hint
+	quote["show_cap"] = show_session.profile.cap
+	quote["show_remaining"] = maxf(0.0, float(show_session.profile.cap) - show_session.awarded)
+	return quote
+
+func _publish_quote() -> void:
+	EventBus.reward_quote_updated.emit(get_reward_quote())

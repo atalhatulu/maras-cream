@@ -1,6 +1,8 @@
 class_name GameState
 extends Node
 
+const DailyEvents = preload("res://scripts/data/daily_event_rules.gd")
+
 enum DayState {
 	DAY_START,
 	SERVING,
@@ -29,6 +31,9 @@ var daily_start_reputation: float = 100.0
 var daily_base_revenue: float = 0.0
 var daily_tips: float = 0.0
 var daily_bonus: float = 0.0
+var daily_show_bonus: float = 0.0
+var daily_event_bonus: float = 0.0
+var daily_event_reputation: float = 0.0
 var daily_wasted_cones: int = 0
 
 # --- DONDURMA TATLARI VE SÜSLEMELERİ ÖNBELLEĞİ ---
@@ -224,43 +229,15 @@ func get_base_scoop_price() -> float:
 		return 6.0
 	return 5.0
 
+func get_balance_event_multiplier() -> float:
+	## Heat makes the soft-serve harder to keep upright for the whole day.
+	return 0.90 if current_daily_event_id == "HEATWAVE" else 1.0
+
 func _roll_daily_event(day_num: int) -> void:
-	if day_num == 1:
-		current_daily_event_id = "NORMAL"
-		current_daily_event_title = "Açılış Günü"
-		current_daily_event_desc = "Hayırlı işler! İlk müşteriler dükkana geliyor."
-	else:
-		var events = [
-			{
-				"id": "HEATWAVE",
-				"title": "Sıcak Hava Dalgası",
-				"desc": "Hava çok sıcak! Top başı fiyat +$1, kule dengesi hassaslaştı."
-			},
-			{
-				"id": "TOURIST_BUS",
-				"title": "Turist Kafilesi",
-				"desc": "Şehre turist kafilesi geldi! Meraklı turist akını ve bol bahşiş!"
-			},
-			{
-				"id": "CHILDRENS_DAY",
-				"title": "Çocuk Şenliği",
-				"desc": "Mahalle çocukları akın ediyor! Bol soslu çılgın kuleler isteniyor!"
-			},
-			{
-				"id": "GOURMET_VISIT",
-				"title": "Gurme Teftişi",
-				"desc": "Lezzet eleştirmeni mahallede! Kusursuz kulelere devasa itibar!"
-			},
-			{
-				"id": "NORMAL",
-				"title": "Güneşli ve Sakin Bir Gün",
-				"desc": "Müşteriler sakin ve keyifle Maraş dondurması bekliyor."
-			}
-		]
-		var ev = events.pick_random()
-		current_daily_event_id = ev["id"]
-		current_daily_event_title = ev["title"]
-		current_daily_event_desc = ev["desc"]
+	current_daily_event_id = DailyEvents.pick_for_day(day_num, current_daily_event_id)
+	var event := DailyEvents.details(current_daily_event_id, day_num)
+	current_daily_event_title = event.title
+	current_daily_event_desc = event.description
 		
 	EventBus.daily_event_announced.emit(current_daily_event_id, current_daily_event_title, current_daily_event_desc)
 	EventBus.notification_requested.emit("GÜN %d: %s! (%s)" % [day_num, current_daily_event_title, current_daily_event_desc], 3.4)
@@ -281,6 +258,9 @@ func start_day(day_num: int = 1) -> void:
 	daily_base_revenue = 0.0
 	daily_tips = 0.0
 	daily_bonus = 0.0
+	daily_show_bonus = 0.0
+	daily_event_bonus = 0.0
+	daily_event_reputation = 0.0
 	daily_wasted_cones = 0
 	
 	_roll_daily_event(current_day)
@@ -291,7 +271,8 @@ func start_day(day_num: int = 1) -> void:
 func can_spawn_customer() -> bool:
 	return day_active and (customers_served < day_customer_target)
 
-func record_order_success(base_price: float, tip: float, bonus: float) -> void:
+func record_order_success(base_price: float, tip: float, bonus: float, show_bonus: float = 0.0,
+		event_bonus: float = 0.0, event_reputation: float = 0.0) -> void:
 	if not day_active:
 		return
 		
@@ -300,8 +281,14 @@ func record_order_success(base_price: float, tip: float, bonus: float) -> void:
 	daily_base_revenue += base_price
 	daily_tips += tip
 	daily_bonus += bonus
+	daily_show_bonus += show_bonus
+	daily_event_bonus += event_bonus
+	var reputation_before := current_reputation
+	if event_reputation > 0.0:
+		update_reputation(event_reputation)
+	daily_event_reputation += current_reputation - reputation_before
 	
-	var total_earned = base_price + tip + bonus
+	var total_earned = base_price + tip + bonus + show_bonus + event_bonus
 	add_money(total_earned)
 	
 	EventBus.day_progress_updated.emit(customers_served, day_customer_target)
@@ -339,7 +326,7 @@ func advance_to_next_day() -> void:
 	start_day(current_day)
 
 func get_day_summary() -> Dictionary:
-	var total_earned = daily_base_revenue + daily_tips + daily_bonus
+	var total_earned = daily_base_revenue + daily_tips + daily_bonus + daily_show_bonus + daily_event_bonus
 	var net_money_change = current_money - daily_start_money
 	var rep_change = current_reputation - daily_start_reputation
 	
@@ -352,6 +339,10 @@ func get_day_summary() -> Dictionary:
 		"base_revenue": daily_base_revenue,
 		"tips": daily_tips,
 		"bonus": daily_bonus,
+		"show_bonus": daily_show_bonus,
+		"event_bonus": daily_event_bonus,
+		"event_reputation": daily_event_reputation,
+		"event_title": current_daily_event_title,
 		"total_earned": total_earned,
 		"net_money_change": net_money_change,
 		"wasted_cones": daily_wasted_cones,

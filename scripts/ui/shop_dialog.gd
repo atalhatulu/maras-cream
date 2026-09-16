@@ -38,7 +38,8 @@ func open_shop() -> void:
 
 func close_shop() -> void:
 	visible = false
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if get_window().has_focus():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	EventBus.shop_closed.emit()
 
 func _set_category_filter(cat: int) -> void:
@@ -60,7 +61,7 @@ func _on_upgrade_purchased(_id: String, _lvl: int) -> void:
 	_render_items()
 
 func _render_items() -> void:
-	if items_container == null:
+	if items_container == null or not visible:
 		return
 		
 	for child in items_container.get_children():
@@ -97,13 +98,13 @@ func _create_upgrade_card(up: UpgradeData) -> PanelContainer:
 	card.add_theme_stylebox_override("panel", card_style)
 	
 	var hbox = HBoxContainer.new()
-	hbox.theme_override_constants.set("separation", 16)
+	hbox.add_theme_constant_override("separation", 16)
 	card.add_child(hbox)
 	
 	# Sol: Bilgiler
 	var info_vbox = VBoxContainer.new()
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info_vbox.theme_override_constants.set("separation", 4)
+	info_vbox.add_theme_constant_override("separation", 4)
 	hbox.add_child(info_vbox)
 	
 	var title_lbl = Label.new()

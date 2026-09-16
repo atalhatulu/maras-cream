@@ -46,7 +46,7 @@ func _connect_gameplay_events() -> void:
 	)
 	EventBus.upgrade_purchased.connect(func(_id, _lvl): play_sfx("upgrade_purchase", 1.0))
 	EventBus.customer_arrived.connect(func(_c, _o): play_sfx("customer_arrive", 1.0))
-	EventBus.maras_trick_performed.connect(func(_cnt, _mult): play_sfx("trick_swoosh", 1.0 + float(_cnt) * 0.1))
+	EventBus.show_started.connect(func(_kind): play_sfx("trick_swoosh", 1.0))
 	EventBus.cone_critical_tilt.connect(func(_ratio): play_sfx("cone_wobble", 1.0, -6.0))
 
 # --- SES ÇALMA MERKEZİ ---

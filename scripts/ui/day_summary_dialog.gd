@@ -22,24 +22,30 @@ func _on_day_completed(summary_data: Dictionary) -> void:
 	var base_rev = summary_data.get("base_revenue", 0.0)
 	var tips = summary_data.get("tips", 0.0)
 	var bonus = summary_data.get("bonus", 0.0)
+	var show_bonus = summary_data.get("show_bonus", 0.0)
 	var total_earned = summary_data.get("total_earned", 0.0)
 	var final_money = summary_data.get("final_money", 0.0)
 	var final_rep = summary_data.get("final_reputation", 100.0)
 	
 	if title_label:
 		title_label.text = "GÜN %d TAMAMLANDI" % day_num
+		title_label.text += "\n" + str(summary_data.get("event_title", ""))
 		
 	if customer_stats_label:
 		customer_stats_label.text = "Toplam Müşteri: %d\n✓ Başarılı: %d\n✗ Kaçan/Zaman Aşımı: %d" % [served, success, failed]
 		
 	if revenue_breakdown_label:
-		revenue_breakdown_label.text = "Dondurma Geliri: $%.2f\nBahşiş Geliri: $%.2f\nİkram Bonusu: $%.2f" % [base_rev, tips, bonus]
+		revenue_breakdown_label.text = "Dondurma Geliri: $%.2f\nBahşiş Geliri: $%.2f\nİkram Bonusu: $%.2f\nŞov Geliri: $%.2f" % [base_rev, tips, bonus, show_bonus]
+		if float(summary_data.get("event_bonus", 0.0)) > 0.0:
+			revenue_breakdown_label.text += "\nTeftiş Primi: $%.2f" % summary_data.event_bonus
 		
 	if total_money_label:
 		total_money_label.text = "Günün Kazancı: +$%.2f\nToplam Kasa: $%.2f" % [total_earned, final_money]
 		
 	if reputation_label:
 		reputation_label.text = "İtibar: %%%d" % int(final_rep)
+		if float(summary_data.get("event_reputation", 0.0)) > 0.0:
+			reputation_label.text += " (teftişten +%.1f)" % summary_data.event_reputation
 		
 	visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

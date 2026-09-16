@@ -32,7 +32,13 @@ signal cone_reset
 signal cone_state_changed(state_name: String, current_count: int, flavors: Array[FlavorData])
 signal cone_balance_updated(balance_ratio: float, current_angle_deg: float)
 signal cone_critical_tilt(tilt_ratio: float)
-signal maras_trick_performed(trick_count: int, multiplier: float)
+signal show_started(kind: String)
+signal show_completed(kind: String)
+signal show_cancelled
+signal show_context_changed(available: bool)
+signal hand_busy_changed(busy: bool)
+signal reward_quote_updated(quote: Dictionary)
+signal customer_unavailable(customer: Node3D)
 signal cone_flipped(is_flipped: bool)
 signal clutch_window_started(fall_direction: float, duration: float)
 signal clutch_catch_succeeded

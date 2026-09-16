@@ -4,6 +4,7 @@ extends Control
 @onready var money_label: Label = $TopBar/HBox/MoneyLabel
 @onready var reputation_label: Label = $TopBar/HBox/ReputationLabel
 @onready var day_label: Label = $TopBar/HBox/DayLabel
+@onready var daily_event_label: Label = $DailyEventPanel/DailyEventLabel
 
 @onready var balance_bar: ProgressBar = $BottomContainer/BalanceContainer/BalanceBar
 @onready var balance_label: Label = $BottomContainer/BalanceContainer/Label
@@ -28,6 +29,8 @@ extends Control
 var _current_active_order: OrderData = null
 var _latest_progress_info: Dictionary = {}
 var _is_clutch_ui_active: bool = false
+var _clutch_ui_generation: int = 0
+var _hand_busy: bool = false
 
 func _ready() -> void:
 	if scoop_gesture_container:
@@ -46,6 +49,7 @@ func _ready() -> void:
 	EventBus.interaction_target_changed.connect(_on_interaction_target_changed)
 	
 	# Şov ve Kurtarma Sinyalleri
+	EventBus.show_cancelled.connect(func(): _is_clutch_ui_active = false)
 	EventBus.clutch_window_started.connect(_on_clutch_window_started)
 	EventBus.clutch_catch_succeeded.connect(_on_clutch_catch_succeeded)
 	EventBus.clutch_catch_failed.connect(_on_clutch_catch_failed)
@@ -56,8 +60,18 @@ func _ready() -> void:
 	# Gün Döngüsü Sinyalleri
 	EventBus.day_started.connect(_on_day_started)
 	EventBus.day_progress_updated.connect(_on_day_progress_updated)
+	EventBus.daily_event_announced.connect(_on_daily_event_announced)
 	
 	# Müşteri ve Sipariş Sinyalleri
+	EventBus.hand_busy_changed.connect(func(busy):
+		_hand_busy = busy
+		_render_order_card()
+	)
+	EventBus.reward_quote_updated.connect(_on_reward_quote_updated)
+	EventBus.customer_unavailable.connect(_on_customer_left)
+	EventBus.show_context_changed.connect(func(available):
+		if not available: _is_clutch_ui_active = false
+	)
 	EventBus.customer_arrived.connect(_on_customer_arrived)
 	EventBus.customer_score_updated.connect(_on_customer_score_updated)
 	EventBus.order_progress_updated.connect(_on_order_progress_updated)
@@ -74,6 +88,10 @@ func _update_labels() -> void:
 		reputation_label.text = "İtibar: %%%d" % int(GameManager.current_reputation)
 	if day_label:
 		day_label.text = "Gün: %d [%d/%d]" % [GameManager.current_day, GameManager.customers_served, GameManager.day_customer_target]
+	_on_daily_event_announced(GameManager.current_daily_event_id, GameManager.current_daily_event_title, GameManager.current_daily_event_desc)
+
+func _on_daily_event_announced(_id: String, title: String, description: String) -> void:
+	daily_event_label.text = "%s\n%s" % [title, description]
 
 func _on_day_started(day_num: int, target: int) -> void:
 	if day_label:
@@ -145,6 +163,7 @@ func _on_balance_updated(balance_ratio: float, current_angle_deg: float) -> void
 			balance_label.modulate = Color.WHITE
 
 func _on_clutch_window_started(fall_direction: float, _duration: float) -> void:
+	_clutch_ui_generation += 1
 	_is_clutch_ui_active = true
 	if balance_label:
 		if fall_direction > 0.0:
@@ -157,8 +176,11 @@ func _on_clutch_catch_succeeded() -> void:
 	if balance_label:
 		balance_label.text = "✨ KULE HAVADA KURTARILDI!"
 		balance_label.modulate = Color(0.3, 1.0, 0.4, 1.0)
+	var generation := _clutch_ui_generation
 	var timer = get_tree().create_timer(1.2)
-	timer.timeout.connect(func(): _is_clutch_ui_active = false)
+	timer.timeout.connect(func():
+		if generation == _clutch_ui_generation: _is_clutch_ui_active = false
+	)
 
 func _on_clutch_catch_failed() -> void:
 	_is_clutch_ui_active = false
@@ -215,20 +237,24 @@ func _update_score_and_reward(score: float) -> void:
 		else:
 			score_header_label.modulate = Color(1.0, 0.4, 0.4, 1)
 			
-	if order_score_label and _current_active_order:
-		var base_price = _current_active_order.flavors.size() * 5.0
-		for top in _current_active_order.toppings:
-			base_price += top.extra_price
-			
-		var tip = (score / 5.0) * (base_price * 0.4)
-		var total_reward = base_price + tip
-		order_score_label.text = "Beklenen Kazanç: $%.2f" % total_reward
+func _on_reward_quote_updated(quote: Dictionary) -> void:
+	if order_score_label == null:
+		return
+	if quote.is_empty():
+		order_score_label.text = ""
+		return
+	order_score_label.modulate = Color.WHITE
+	order_score_label.text = "Beklenen Kazanç: $%.2f\nBahşiş $%.2f • İkram $%.2f\nŞov $%.2f • Kalan şov payı $%.2f\n%s" % [quote.total, quote.tip, quote.gift, quote.show, quote.show_remaining, quote.hint]
+	if not str(quote.get("event_note", "")).is_empty():
+		order_score_label.text += "\n" + str(quote.event_note)
 
 func _on_order_progress_updated(progress_info: Dictionary) -> void:
 	_latest_progress_info = progress_info
 	_render_order_card()
 
 func _on_order_completed(_order: OrderData, final_score: float) -> void:
+	_latest_progress_info["is_completed"] = false
+	_render_order_card()
 	if order_score_label:
 		order_score_label.text = "Teslim Edildi! ⭐ %.2f" % final_score
 		order_score_label.modulate = Color(0.35, 1.0, 0.45, 1)
@@ -318,7 +344,7 @@ func _render_order_card() -> void:
 	if _latest_progress_info.get("is_completed", false):
 		var deliver_hint = Label.new()
 		deliver_hint.add_theme_font_size_override("font_size", 13)
-		deliver_hint.text = "▶ [E] Teslim Et"
+		deliver_hint.text = "Hareket bitince teslim edebilirsin." if _hand_busy else "▶ [E] Teslim Et"
 		deliver_hint.modulate = Color(1.0, 0.88, 0.2, 1)
 		order_items_list.add_child(deliver_hint)
 

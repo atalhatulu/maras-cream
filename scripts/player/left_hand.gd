@@ -50,6 +50,14 @@ var _scoop_angles: Array[float] = []
 var current_balance_tolerance: float = 1.0
 
 # Şov ve Kurtarma Durumları
+var _show_tween: Tween
+var _cone_tween: Tween
+var _transfer_tween: Tween
+var _flying_scoop: MeshInstance3D
+var _show_customer_available: bool = false
+var _is_disposing: bool = false
+var _show_cooldown: float = 0.0
+var is_performing_trick: bool = false
 var is_flipping: bool = false
 var is_clutch_active: bool = false
 var clutch_used_this_cone: bool = false
@@ -65,6 +73,11 @@ func _ready() -> void:
 	EventBus.trash_can_interacted.connect(_on_trash_can_interacted)
 	EventBus.topping_applied.connect(_on_topping_applied)
 	EventBus.cone_reset.connect(reset_cone)
+	EventBus.show_context_changed.connect(func(available):
+		_show_customer_available = available
+		if not available:
+			_cancel_show()
+	)
 	EventBus.customer_arrived.connect(func(cust, _ord):
 		if cust and "archetype" in cust and cust.archetype:
 			current_balance_tolerance = cust.archetype.balance_tolerance
@@ -77,6 +90,7 @@ func _ready() -> void:
 	_notify_state_changed()
 
 func _process(delta: float) -> void:
+	_show_cooldown = maxf(0.0, _show_cooldown - delta)
 	var safe_delta = min(delta, 0.05)
 	if has_cone():
 		_simulate_balance_physics(safe_delta)
@@ -90,10 +104,7 @@ func _process(delta: float) -> void:
 
 func _simulate_balance_physics(delta: float) -> void:
 	if is_flipping:
-		current_angle_deg = 0.0
-		angular_velocity = 0.0
-		_current_input_torque = 0.0
-		EventBus.cone_balance_updated.emit(0.0, 0.0)
+		EventBus.cone_balance_updated.emit(clampf(current_angle_deg / get_safe_angle(), -1.0, 1.0), current_angle_deg)
 		return
 		
 	if is_clutch_active:
@@ -109,6 +120,8 @@ func _simulate_balance_physics(delta: float) -> void:
 			
 		if _clutch_timer <= 0.0:
 			is_clutch_active = false
+			EventBus.show_cancelled.emit()
+			_emit_busy()
 			EventBus.clutch_catch_failed.emit()
 			_trigger_cone_drop()
 		return
@@ -146,8 +159,7 @@ func _simulate_balance_physics(delta: float) -> void:
 	angular_velocity -= angular_velocity * damping_factor * delta
 	current_angle_deg += angular_velocity * delta
 	
-	var stability_angle_bonus = GameManager.get_upgrade_effect("cone_stability", "angle_tolerance")
-	var effective_max_angle = (max_safe_angle_deg + stability_angle_bonus) * current_balance_tolerance
+	var effective_max_angle := get_safe_angle()
 	var balance_ratio = clampf(current_angle_deg / effective_max_angle, -1.0, 1.0)
 	EventBus.cone_balance_updated.emit(balance_ratio, current_angle_deg)
 	
@@ -192,7 +204,8 @@ func _update_visual_tilt(delta: float) -> void:
 	if not cone_pivot:
 		return
 		
-	cone_pivot.rotation.z = -deg_to_rad(current_angle_deg)
+	if not is_flipping:
+		cone_pivot.rotation.z = -deg_to_rad(current_angle_deg)
 	
 	# Absürt Kule Yüksekliğini Ekrana Sığdırma (Dynamic Lowering)
 	var scoop_count = stacked_flavors.size()
@@ -223,33 +236,35 @@ func _on_cone_dispenser_interacted() -> void:
 	reach_and_take_cone()
 
 func reach_and_take_cone() -> void:
+	if is_action_busy():
+		return
 	is_reaching_cone = true
+	_emit_busy()
 	
 	var reach_pos = _base_local_pos + Vector3(-0.46, -0.26, -0.44)
 	var reach_rot = Vector3(deg_to_rad(28.0), deg_to_rad(22.0), -deg_to_rad(16.0))
 	
 	var tween = create_tween().set_trans(Tween.TRANS_CUBIC)
+	_cone_tween = tween
 	
-	tween.set_parallel(true)
 	tween.tween_property(self, "position", reach_pos, 0.18).set_ease(Tween.EASE_OUT)
-	tween.tween_property(self, "rotation", reach_rot, 0.18).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(self, "rotation", reach_rot, 0.18).set_ease(Tween.EASE_OUT)
 	
-	tween.chain().tween_callback(func():
+	tween.tween_callback(func():
 		take_cone()
 	)
 	
 	var pull_pos = reach_pos + Vector3(0.08, 0.12, 0.10)
 	var pull_rot = Vector3(deg_to_rad(10.0), deg_to_rad(8.0), -deg_to_rad(5.0))
-	tween.set_parallel(true)
 	tween.tween_property(self, "position", pull_pos, 0.10).set_ease(Tween.EASE_OUT)
-	tween.tween_property(self, "rotation", pull_rot, 0.10).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(self, "rotation", pull_rot, 0.10).set_ease(Tween.EASE_OUT)
 	
-	tween.chain().set_parallel(true)
 	tween.tween_property(self, "position", _base_local_pos, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(self, "rotation", Vector3.ZERO, 0.26).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(self, "rotation", Vector3.ZERO, 0.26).set_ease(Tween.EASE_OUT)
 	
-	tween.chain().tween_callback(func():
+	tween.tween_callback(func():
 		is_reaching_cone = false
+		_emit_busy()
 	)
 
 func _on_trash_can_interacted() -> void:
@@ -285,15 +300,20 @@ func take_cone() -> void:
 	EventBus.notification_requested.emit("Külah alındı.", 1.2)
 
 func discard_cone_to_trash() -> void:
+	_cancel_show()
+	_cancel_transfer()
+	_is_disposing = true
+	_emit_busy()
 	state = ConeState.DISCARDED
 	_notify_state_changed()
 	EventBus.cone_discarded.emit()
 	EventBus.notification_requested.emit("Külah çöpe atıldı.", 1.2)
 	
 	var throw_tween = create_tween().set_parallel(true)
+	_cone_tween = throw_tween
 	throw_tween.tween_property(cone_pivot, "position", cone_pivot.position + Vector3(0.6, -0.4, -0.3), 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	throw_tween.tween_property(cone_pivot, "rotation:z", deg_to_rad(120), 0.35)
-	throw_tween.tween_property(cone_pivot, "scale", Vector3.ZERO, 0.35)
+	throw_tween.tween_property(cone_pivot, "scale", Vector3.ONE * 0.001, 0.35)
 	
 	throw_tween.chain().tween_callback(func():
 		cone_pivot.visible = false
@@ -301,16 +321,21 @@ func discard_cone_to_trash() -> void:
 	)
 
 func _trigger_cone_drop() -> void:
+	_cancel_show()
+	_cancel_transfer()
+	_is_disposing = true
+	_emit_busy()
 	state = ConeState.DROPPED
 	_notify_state_changed()
 	EventBus.cone_dropped.emit()
 	EventBus.notification_requested.emit("Devasa dondurma kulesi devrildi!", 2.2)
 	
 	var fall_tween = create_tween().set_parallel(true)
+	_cone_tween = fall_tween
 	var fall_dir = 1.0 if current_angle_deg > 0 else -1.0
 	fall_tween.tween_property(cone_pivot, "position", cone_pivot.position + Vector3(fall_dir * 0.4, -0.8, -0.2), 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	fall_tween.tween_property(cone_pivot, "rotation:z", deg_to_rad(fall_dir * 180), 0.4)
-	fall_tween.tween_property(cone_pivot, "scale", Vector3.ZERO, 0.4)
+	fall_tween.tween_property(cone_pivot, "scale", Vector3.ONE * 0.001, 0.4)
 	
 	fall_tween.chain().tween_callback(func():
 		cone_pivot.visible = false
@@ -318,6 +343,8 @@ func _trigger_cone_drop() -> void:
 	)
 
 func _on_topping_applied(topping: ToppingData) -> void:
+	if is_action_busy():
+		return
 	if not has_cone() or stacked_flavors.is_empty():
 		EventBus.notification_requested.emit("Önce külaha dondurma koymalısın!", 1.2)
 		return
@@ -373,9 +400,8 @@ func _create_topping_mesh_on_top_scoop(topping: ToppingData) -> void:
 	top_scoop.add_child(topping_mesh)
 
 func _on_place_on_cone_attempted() -> void:
-	if _is_transferring:
+	if is_action_busy():
 		return
-		
 	if not has_cone():
 		EventBus.notification_requested.emit("Önce külah standından bir külah al!", 1.5)
 		return
@@ -391,9 +417,11 @@ func _on_place_on_cone_attempted() -> void:
 
 func _animate_scoop_transfer(flavor: FlavorData, right_hand: RightHandController) -> void:
 	_is_transferring = true
+	_emit_busy()
 	var scoop_flavor = right_hand.consume_scoop()
 	
 	var flying_mesh = MeshInstance3D.new()
+	_flying_scoop = flying_mesh
 	var sphere = SphereMesh.new()
 	sphere.radius = SCOOP_RADIUS
 	sphere.height = SCOOP_RADIUS * 1.8
@@ -413,6 +441,7 @@ func _animate_scoop_transfer(flavor: FlavorData, right_hand: RightHandController
 	flying_mesh.global_position = start_pos
 	
 	var tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_transfer_tween = tween
 	var mid_pos = (start_pos + target_pos) * 0.5 + Vector3(0, 0.1, 0)
 	
 	tween.tween_method(func(t: float):
@@ -427,6 +456,8 @@ func _animate_scoop_transfer(flavor: FlavorData, right_hand: RightHandController
 			flying_mesh.queue_free()
 		_finalize_add_scoop(scoop_flavor)
 		_is_transferring = false
+		_flying_scoop = null
+		_emit_busy()
 	)
 
 func _finalize_add_scoop(flavor: FlavorData) -> void:
@@ -496,87 +527,87 @@ func _clear_scoop_meshes() -> void:
 	_scoop_vels.clear()
 	_scoop_angles.clear()
 
-var is_performing_trick: bool = false
-var current_trick_count: int = 0
 
 func perform_trick() -> bool:
-	if not has_cone() or stacked_flavors.is_empty() or is_performing_trick or is_reaching_cone:
+	if not _can_start_show():
 		return false
-		
 	is_performing_trick = true
-	current_trick_count += 1
-	
-	var trick_multiplier = 1.0 + (float(current_trick_count) * 0.35)
-	EventBus.maras_trick_performed.emit(current_trick_count, trick_multiplier)
-	EventBus.notification_requested.emit("MARAŞ ŞOVU! #%d (+%%%d Bahşiş)" % [current_trick_count, int((trick_multiplier - 1.0) * 100)], 1.3)
-	
+	_emit_busy()
+	EventBus.show_started.emit("tease")
 	var forward_pos = _base_local_pos + Vector3(0.08, 0.04, -0.36)
 	var hide_pos = _base_local_pos + Vector3(-0.16, -0.06, 0.22)
 	var hide_rot = Vector3(deg_to_rad(12.0), deg_to_rad(35.0), -deg_to_rad(15.0))
 	
 	var tween = create_tween().set_trans(Tween.TRANS_CUBIC)
+	_show_tween = tween
 	# 1. Külahı müşteriye doğru uzat
-	tween.set_parallel(true)
 	tween.tween_property(self, "position", forward_pos, 0.15).set_ease(Tween.EASE_OUT)
-	tween.tween_property(self, "rotation", Vector3(deg_to_rad(8), 0, 0), 0.15)
+	tween.parallel().tween_property(self, "rotation", Vector3(deg_to_rad(8), 0, 0), 0.15)
 	
 	# 2. Son anda aniden geri kaçır ve arkaya sakla
-	tween.chain().set_parallel(true)
 	tween.tween_property(self, "position", hide_pos, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(self, "rotation", hide_rot, 0.18).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(self, "rotation", hide_rot, 0.18).set_ease(Tween.EASE_OUT)
 	
 	# 3. Normal pozisyona geri dön
-	tween.chain().set_parallel(true)
 	tween.tween_property(self, "position", _base_local_pos, 0.26).set_ease(Tween.EASE_OUT)
-	tween.tween_property(self, "rotation", Vector3.ZERO, 0.26).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(self, "rotation", Vector3.ZERO, 0.26).set_ease(Tween.EASE_OUT)
 	
-	tween.chain().tween_callback(func():
+	tween.tween_callback(func():
 		is_performing_trick = false
+		_show_tween = null
+		_show_cooldown = 0.6
+		_emit_busy()
+		EventBus.show_completed.emit("tease")
 	)
 	return true
 
 func flip_cone() -> bool:
-	if not has_cone() or stacked_flavors.is_empty() or is_flipping or is_performing_trick or is_reaching_cone or is_clutch_active:
+	if not _can_start_show():
 		return false
 		
-	var stability_angle_bonus = GameManager.get_upgrade_effect("cone_stability", "angle_tolerance")
-	var effective_max_angle = (max_safe_angle_deg + stability_angle_bonus) * current_balance_tolerance
+	var effective_max_angle := get_safe_angle()
 	
 	if abs(current_angle_deg) > effective_max_angle * 0.72:
 		EventBus.notification_requested.emit("Kule çok eğik, ters çeviremezsin!", 1.2)
 		return false
 		
 	is_flipping = true
+	_emit_busy()
+	EventBus.show_started.emit("flip")
 	EventBus.cone_flipped.emit(true)
 	EventBus.notification_requested.emit("MARAŞ YERÇEKİMİ ŞOVU! 🔄 (Dökülmüyor!)", 1.4)
 	
-	current_angle_deg = 0.0
-	angular_velocity = 0.0
-	
 	var flip_lift_pos = _base_local_pos + Vector3(0.04, 0.12, -0.22)
 	var tween = create_tween().set_trans(Tween.TRANS_QUAD)
+	_show_tween = tween
 	
-	tween.set_parallel(true)
 	tween.tween_property(self, "position", flip_lift_pos, 0.20).set_ease(Tween.EASE_OUT)
-	tween.tween_property(cone_pivot, "rotation:z", deg_to_rad(180.0), 0.22).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(cone_pivot, "rotation:z", deg_to_rad(180.0), 0.22).set_ease(Tween.EASE_OUT)
 	
-	tween.chain().tween_interval(0.75)
+	tween.tween_interval(0.75)
 	
-	tween.chain().set_parallel(true)
 	tween.tween_property(self, "position", _base_local_pos, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(cone_pivot, "rotation:z", 0.0, 0.22).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(cone_pivot, "rotation:z", 0.0, 0.22).set_ease(Tween.EASE_OUT)
 	
-	tween.chain().tween_callback(func():
+	tween.tween_callback(func():
 		is_flipping = false
+		_show_tween = null
+		_show_cooldown = 0.6
+		_emit_busy()
 		EventBus.cone_flipped.emit(false)
+		EventBus.show_completed.emit("flip")
 	)
 	return true
 
 func _start_clutch_window(fall_dir: float) -> void:
-	if is_clutch_active or state == ConeState.DROPPED or state == ConeState.DISCARDED:
+	if is_clutch_active or not has_cone() or clutch_used_this_cone or stacked_flavors.size() < 2:
 		return
 		
+	_cancel_show()
+	_cancel_transfer()
 	is_clutch_active = true
+	_emit_busy()
+	EventBus.show_started.emit("catch")
 	clutch_used_this_cone = true
 	_clutch_fall_dir = fall_dir
 	_clutch_timer = CLUTCH_WINDOW_DURATION
@@ -584,18 +615,28 @@ func _start_clutch_window(fall_dir: float) -> void:
 	EventBus.clutch_window_started.emit(fall_dir, CLUTCH_WINDOW_DURATION)
 
 func _clutch_recover() -> void:
+	if not is_clutch_active or not has_cone():
+		return
 	is_clutch_active = false
 	_clutch_timer = 0.0
 	angular_velocity = -_clutch_fall_dir * 42.0
 	current_angle_deg = move_toward(current_angle_deg, 0.0, 20.0)
+	_emit_busy()
 	EventBus.clutch_catch_succeeded.emit()
-	EventBus.notification_requested.emit("⚡ HARİKA REFLEKS! KULE HAVADA KURTARILDI!", 1.6)
+	EventBus.show_completed.emit("catch")
 
 func reset_cone() -> void:
+	_cancel_show()
+	_cancel_transfer()
+	if _cone_tween and _cone_tween.is_valid():
+		_cone_tween.kill()
+	_cone_tween = null
+	is_reaching_cone = false
+	_is_disposing = false
+	_emit_busy()
 	state = ConeState.NONE
 	stacked_flavors.clear()
 	applied_toppings.clear()
-	current_trick_count = 0
 	current_angle_deg = 0.0
 	angular_velocity = 0.0
 	_current_input_torque = 0.0
@@ -643,3 +684,51 @@ func _get_right_hand() -> RightHandController:
 	if get_parent():
 		return get_parent().get_node_or_null("RightHandRig") as RightHandController
 	return null
+
+func is_action_busy() -> bool:
+	return is_performing_trick or is_flipping or is_clutch_active or is_reaching_cone or _is_transferring or _is_disposing
+
+func get_safe_angle() -> float:
+	var stability_bonus := GameManager.get_upgrade_effect("cone_stability", "angle_tolerance")
+	return (max_safe_angle_deg + stability_bonus) * current_balance_tolerance * GameManager.get_balance_event_multiplier()
+
+func _emit_busy() -> void:
+	EventBus.hand_busy_changed.emit(is_action_busy())
+
+func _can_start_show() -> bool:
+	if not has_cone() or stacked_flavors.is_empty() or is_action_busy() or _show_cooldown > 0.0:
+		return false
+	if not _show_customer_available:
+		EventBus.notification_requested.emit("Şov için tezgâhta bir müşteri beklemeli.", 1.2)
+		return false
+	return true
+
+func _cancel_show() -> void:
+	if _show_tween and _show_tween.is_valid():
+		_show_tween.kill()
+	_show_tween = null
+	var was_flipping := is_flipping
+	var was_busy := is_performing_trick or is_flipping or is_clutch_active
+	is_performing_trick = false
+	is_flipping = false
+	is_clutch_active = false
+	_clutch_timer = 0.0
+	if was_busy:
+		position = _base_local_pos
+		rotation = Vector3.ZERO
+		if cone_pivot:
+			cone_pivot.rotation.z = -deg_to_rad(current_angle_deg)
+		EventBus.show_cancelled.emit()
+	if was_flipping:
+		EventBus.cone_flipped.emit(false)
+	_emit_busy()
+
+func _cancel_transfer() -> void:
+	if _transfer_tween and _transfer_tween.is_valid():
+		_transfer_tween.kill()
+	_transfer_tween = null
+	if is_instance_valid(_flying_scoop):
+		_flying_scoop.queue_free()
+	_flying_scoop = null
+	_is_transferring = false
+	_emit_busy()

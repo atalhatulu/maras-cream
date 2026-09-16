@@ -47,10 +47,9 @@ func _ready() -> void:
 	EventBus.cone_dropped.connect(_on_cone_dropped)
 	EventBus.ice_cream_added.connect(_on_ice_cream_added)
 	EventBus.order_progress_updated.connect(_on_order_progress_updated)
-	EventBus.maras_trick_performed.connect(_on_maras_trick_performed)
+	EventBus.show_started.connect(_on_show_started)
 	EventBus.cone_flipped.connect(_on_cone_flipped)
 	EventBus.clutch_window_started.connect(_on_clutch_window_started)
-	EventBus.clutch_catch_succeeded.connect(_on_clutch_catch_succeeded)
 
 func apply_archetype(arch: CustomerArchetype) -> void:
 	archetype = arch
@@ -158,17 +157,23 @@ func _on_arrived_at_counter() -> void:
 	if current_order:
 		EventBus.customer_score_updated.emit(current_order.current_score)
 
-func entertain_with_bell(duration: float = 3.5) -> void:
-	if state != State.WAITING and state != State.ORDER_IN_PROGRESS and state != State.IMPATIENT:
+func react_to_show(result: Dictionary) -> void:
+	if not accepts_service() or current_order == null:
 		return
-		
-	_freeze_timer = duration
-	_patience_depleted_timer = max(0.0, _patience_depleted_timer - 4.0)
+	_freeze_timer += float(result.pause)
+	if float(result.penalty) > 0.0:
+		current_order.current_score = maxf(current_order.min_score, current_order.current_score - float(result.penalty))
+		EventBus.customer_score_updated.emit(current_order.current_score)
 	if speech_label_3d:
-		speech_label_3d.text = "Harika şov! 🎵"
-		speech_label_3d.modulate = Color(1.0, 0.85, 0.35, 1.0)
-		
-	_pop_reaction(0.06)
+		speech_label_3d.text = result.reaction
+		speech_label_3d.modulate = Color(1.0, 0.65, 0.3) if result.penalty > 0.0 or result.repeated else Color(0.4, 1.0, 0.6)
+	_pop_reaction(0.08 if result.amount > 0.0 else 0.025)
+	if hands_pivot:
+		var tween := create_tween()
+		tween.tween_property(hands_pivot, "position:z", 0.0, 0.18)
+
+func accepts_service() -> bool:
+	return state in [State.WAITING, State.ORDER_IN_PROGRESS, State.ORDER_READY, State.IMPATIENT, State.DISAPPOINTED]
 
 func _process(delta: float) -> void:
 	var safe_delta = min(delta, 0.05)
@@ -255,7 +260,7 @@ func _update_score_and_patience(delta: float) -> void:
 					_trigger_patience_timeout()
 
 func _on_ice_cream_added(_flavor: FlavorData, total_count: int) -> void:
-	if state == State.LEAVING or state == State.TIMEOUT or state == State.COMPLETED:
+	if not accepts_service():
 		return
 		
 	if state != State.ORDER_READY:
@@ -273,7 +278,7 @@ func _on_ice_cream_added(_flavor: FlavorData, total_count: int) -> void:
 		_pop_reaction(0.04)
 
 func _on_order_progress_updated(progress_info: Dictionary) -> void:
-	if state == State.LEAVING or state == State.TIMEOUT or state == State.COMPLETED:
+	if not accepts_service():
 		return
 		
 	if progress_info.get("is_completed", false):
@@ -286,9 +291,12 @@ func _on_order_progress_updated(progress_info: Dictionary) -> void:
 		if speech_label_3d:
 			speech_label_3d.text = "Bu benim istediğim aroma değil..."
 			speech_label_3d.modulate = Color(1.0, 0.35, 0.35, 1.0)
+	else:
+		state = State.ORDER_IN_PROGRESS if progress_info.get("prep_count", 0) > 0 else State.WAITING
 
-func _on_maras_trick_performed(trick_count: int, _multiplier: float) -> void:
-	if state == State.LEAVING or state == State.TIMEOUT or state == State.COMPLETED:
+
+func _on_show_started(kind: String) -> void:
+	if kind != "tease" or not accepts_service():
 		return
 		
 	# Müşterinin külahı yakalamaya çalışıp elini uzatması ve kaçırması
@@ -303,68 +311,16 @@ func _on_maras_trick_performed(trick_count: int, _multiplier: float) -> void:
 		head_tween.tween_property(head_pivot, "rotation:x", -deg_to_rad(14.0), 0.12).set_ease(Tween.EASE_OUT)
 		head_tween.tween_property(head_pivot, "rotation:x", 0.0, 0.18)
 		
-	if speech_label_3d:
-		if archetype and archetype.type == CustomerArchetype.ArchetypeType.BUSINESS:
-			if trick_count == 1:
-				speech_label_3d.text = "Haha, klasik numara!"
-				speech_label_3d.modulate = Color(1.0, 0.85, 0.3, 1.0)
-			else:
-				speech_label_3d.text = "Lütfen acele edelim, toplantım var!"
-				speech_label_3d.modulate = Color(1.0, 0.4, 0.4, 1.0)
-				if current_order:
-					current_order.current_score = max(current_order.min_score, current_order.current_score - 0.35)
-		elif archetype and archetype.type == CustomerArchetype.ArchetypeType.CHILD:
-			speech_label_3d.text = "Aaa! Külah nereye gitti?! 😂"
-			speech_label_3d.modulate = Color(0.3, 0.95, 0.5, 1.0)
-			_freeze_timer = 2.5
-			_pop_reaction(0.08)
-		elif archetype and archetype.type == CustomerArchetype.ArchetypeType.TOURIST:
-			speech_label_3d.text = "İşte bu! Gerçek Maraş şovu! 👏"
-			speech_label_3d.modulate = Color(1.0, 0.8, 0.2, 1.0)
-			_freeze_timer = 2.0
-			_pop_reaction(0.06)
-		elif archetype and archetype.type == CustomerArchetype.ArchetypeType.INFLUENCER:
-			speech_label_3d.text = "Harika bir klip oldu! Devam et! 📱"
-			speech_label_3d.modulate = Color(0.9, 0.3, 1.0, 1.0)
-			_freeze_timer = 2.0
-		else:
-			speech_label_3d.text = "Vay canına, yakalayamadım! 😄"
-			speech_label_3d.modulate = Color(1.0, 0.85, 0.3, 1.0)
 
 func _on_cone_flipped(is_flipped: bool) -> void:
-	if state == State.LEAVING or state == State.TIMEOUT or state == State.COMPLETED:
+	if not accepts_service():
 		return
-		
-	if is_flipped:
-		_freeze_timer = 3.2
-		_pop_reaction(0.12)
-		if head_pivot:
-			head_pivot.rotation.x = -deg_to_rad(16.0)
-			
-		if speech_label_3d:
-			if archetype and archetype.type == CustomerArchetype.ArchetypeType.TOURIST:
-				speech_label_3d.text = "Aman tanrım! Dökülmüyor! 😮"
-				speech_label_3d.modulate = Color(1.0, 0.85, 0.2, 1.0)
-			elif archetype and archetype.type == CustomerArchetype.ArchetypeType.CHILD:
-				speech_label_3d.text = "İnanamıyorum! Sihirbaz mısın sen?! 🤩"
-				speech_label_3d.modulate = Color(0.3, 0.95, 0.5, 1.0)
-			elif archetype and archetype.type == CustomerArchetype.ArchetypeType.GOURMET:
-				speech_label_3d.text = "İşte hakiki Maraş kıvamı ve elastikiyeti!"
-				speech_label_3d.modulate = Color(0.9, 0.9, 0.7, 1.0)
-			elif archetype and archetype.type == CustomerArchetype.ArchetypeType.INFLUENCER:
-				speech_label_3d.text = "Bu kare rekor kırar! İnanılmaz! 🔥"
-				speech_label_3d.modulate = Color(0.9, 0.3, 1.0, 1.0)
-			elif archetype and archetype.type == CustomerArchetype.ArchetypeType.BUSINESS:
-				speech_label_3d.text = "Vay canına, gerçekten dökülmedi!"
-				speech_label_3d.modulate = Color(1.0, 0.85, 0.3, 1.0)
-			else:
-				speech_label_3d.text = "Düşecek sandım! Harika kıvam! 👏"
-				speech_label_3d.modulate = Color(1.0, 0.85, 0.3, 1.0)
-	else:
-		_pop_reaction(0.06)
+	if is_flipped and speech_label_3d:
+		speech_label_3d.text = "Dökülecek mi?.."
+		speech_label_3d.modulate = Color(0.9, 0.85, 0.5)
 
 func _on_clutch_window_started(_fall_direction: float, _duration: float) -> void:
-	if state == State.LEAVING or state == State.TIMEOUT or state == State.COMPLETED:
+	if not accepts_service():
 		return
 		
 	if hands_pivot:
@@ -374,21 +330,6 @@ func _on_clutch_window_started(_fall_direction: float, _duration: float) -> void
 	if speech_label_3d:
 		speech_label_3d.text = "DÜŞÜYOR! DİKKAT ET! 😱"
 		speech_label_3d.modulate = Color(1.0, 0.25, 0.25, 1.0)
-
-func _on_clutch_catch_succeeded() -> void:
-	if state == State.LEAVING or state == State.TIMEOUT or state == State.COMPLETED:
-		return
-		
-	_freeze_timer = 2.4
-	_pop_reaction(0.14)
-	
-	if hands_pivot:
-		var relax_tween = create_tween().set_trans(Tween.TRANS_BACK)
-		relax_tween.tween_property(hands_pivot, "position:z", 0.0, 0.18).set_ease(Tween.EASE_OUT)
-		
-	if speech_label_3d:
-		speech_label_3d.text = "OH BE! Son anda kurtardın! 👏🎉"
-		speech_label_3d.modulate = Color(0.35, 1.0, 0.45, 1.0)
 
 func _pop_reaction(amount: float) -> void:
 	if visual_pivot:
@@ -402,6 +343,7 @@ func _trigger_patience_timeout() -> void:
 		return
 		
 	state = State.TIMEOUT
+	EventBus.customer_unavailable.emit(self)
 	_is_score_decaying = false
 	set_highlight(false)
 	
@@ -479,7 +421,7 @@ func _start_leaving_tween() -> void:
 	)
 
 func _on_cone_dropped() -> void:
-	if (state == State.WAITING or state == State.ORDER_IN_PROGRESS or state == State.IMPATIENT) and current_order:
+	if accepts_service() and current_order:
 		var penalty = 0.40
 		if archetype and archetype.type == CustomerArchetype.ArchetypeType.GOURMET:
 			penalty = 0.65

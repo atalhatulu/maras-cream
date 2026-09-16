@@ -112,9 +112,29 @@ visible = false
 layout_mode = 1
 offset_left = 24.0
 offset_top = 56.0
-offset_right = 260.0
+offset_right = 330.0
 offset_bottom = 190.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="DailyEventPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -330.0
+offset_top = 56.0
+offset_right = -24.0
+offset_bottom = 150.0
+grow_horizontal = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="DailyEventLabel" type="Label" parent="DailyEventPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.55, 1)
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 2
+text = "Günün kuralı"
 
 [node name="VBox" type="VBoxContainer" parent="OrderCardContainer"]
 layout_mode = 2
@@ -141,7 +161,8 @@ text = "⭐ 5.00"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.8, 0.85, 1)
 theme_override_font_sizes/font_size = 13
-text = "Beklenen Kazanç: $15.00"
+text = "Beklenen Kazanç: $0.00"
+autowrap_mode = 2
 
 [node name="HSeparator" type="HSeparator" parent="OrderCardContainer/VBox"]
 layout_mode = 2
