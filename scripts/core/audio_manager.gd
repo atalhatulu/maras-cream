@@ -48,6 +48,13 @@ func _connect_gameplay_events() -> void:
 	EventBus.customer_arrived.connect(func(_c, _o): play_sfx("customer_arrive", 1.0))
 	EventBus.show_started.connect(func(_kind): play_sfx("trick_swoosh", 1.0))
 	EventBus.cone_critical_tilt.connect(func(_ratio): play_sfx("cone_wobble", 1.0, -6.0))
+	EventBus.clutch_catch_succeeded.connect(func(): play_sfx("customer_wow", 1.1, 2.0))
+	EventBus.show_reward_awarded.connect(func(res):
+		if float(res.get("amount", 0.0)) > 0.0:
+			play_sfx("customer_happy", 1.05, 1.0)
+		elif float(res.get("penalty", 0.0)) > 0.0:
+			play_sfx("customer_impatient", 0.95)
+	)
 
 # --- SES ÇALMA MERKEZİ ---
 

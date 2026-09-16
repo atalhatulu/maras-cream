@@ -56,6 +56,8 @@ func _ready() -> void:
 	EventBus.cone_flipped.connect(_on_cone_flipped)
 	EventBus.cone_dropped.connect(func(): _is_clutch_ui_active = false)
 	EventBus.cone_reset.connect(func(): _is_clutch_ui_active = false)
+	EventBus.show_reward_awarded.connect(_on_show_reward_awarded)
+	EventBus.cone_critical_tilt.connect(_on_cone_critical_tilt)
 	
 	# Gün Döngüsü Sinyalleri
 	EventBus.day_started.connect(_on_day_started)
@@ -189,6 +191,76 @@ func _on_cone_flipped(is_flipped: bool) -> void:
 	if is_flipped and balance_label:
 		balance_label.text = "🔄 TERS ÇEVİRME ŞOVU!"
 		balance_label.modulate = Color(0.4, 0.85, 1.0, 1.0)
+
+func _on_cone_critical_tilt(tilt_severity: float) -> void:
+	if balance_bar:
+		balance_bar.modulate = Color(1.0, 0.35, 0.35, 1.0) if tilt_severity > 0.85 else Color(1.0, 0.75, 0.35, 1.0)
+
+func _on_show_reward_awarded(result: Dictionary) -> void:
+	_spawn_floating_show_banner(result)
+
+func _spawn_floating_show_banner(result: Dictionary) -> void:
+	var kind: String = str(result.get("kind", ""))
+	var amount: float = float(result.get("amount", 0.0))
+	var penalty: float = float(result.get("penalty", 0.0))
+	var repeated: bool = bool(result.get("repeated", false))
+	
+	var text_title := "MARAŞ ŞOVU!"
+	var banner_color := Color(1.0, 0.88, 0.25, 1.0)
+	
+	match kind:
+		"tease":
+			text_title = "UZAT-KAÇIR!"
+		"flip":
+			text_title = "YERÇEKİMİ ŞOVU!"
+		"catch":
+			text_title = "HAVADA KURTARMA!"
+			banner_color = Color(0.35, 1.0, 0.6, 1.0)
+		"bell":
+			text_title = "RİTİM ZİLİ!"
+	
+	var full_text := ""
+	if amount > 0.0:
+		full_text = "★ %s +$%.2f" % [text_title, amount]
+		if repeated:
+			full_text += " (Tekrar)"
+	elif penalty > 0.0:
+		full_text = "⚠ SABIRSIZ MÜŞTERİ! -%.2f Puan" % penalty
+		banner_color = Color(1.0, 0.35, 0.35, 1.0)
+	else:
+		if kind == "bell" and float(result.get("pause", 0.0)) > 0.0:
+			full_text = "🎵 %s (Sabır Durdu)" % text_title
+			banner_color = Color(0.7, 0.9, 1.0, 1.0)
+		else:
+			return
+			
+	var banner_label = Label.new()
+	banner_label.text = full_text
+	banner_label.add_theme_font_size_override("font_size", 18)
+	banner_label.add_theme_color_override("font_color", banner_color)
+	banner_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+	banner_label.add_theme_constant_override("outline_size", 4)
+	banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	banner_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	var center_x = get_viewport_rect().size.x * 0.5
+	var center_y = get_viewport_rect().size.y * 0.38
+	banner_label.position = Vector2(center_x - 130.0, center_y)
+	banner_label.size = Vector2(260.0, 32.0)
+	banner_label.pivot_offset = Vector2(130.0, 16.0)
+	banner_label.scale = Vector2(0.4, 0.4)
+	add_child(banner_label)
+	
+	var tween = create_tween()
+	tween.tween_property(banner_label, "scale", Vector2(1.15, 1.15), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(banner_label, "scale", Vector2.ONE, 0.10)
+	tween.parallel().tween_property(banner_label, "position:y", center_y - 28.0, 1.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(banner_label, "modulate:a", 0.0, 0.35).set_delay(0.65)
+	tween.tween_callback(func():
+		if is_instance_valid(banner_label):
+			banner_label.queue_free()
+	)
 
 func _on_scoop_dive_progress(progress_ratio: float) -> void:
 	if scoop_gesture_container and scoop_gauge_bar:

@@ -35,6 +35,7 @@ signal cone_critical_tilt(tilt_ratio: float)
 signal show_started(kind: String)
 signal show_completed(kind: String)
 signal show_cancelled
+signal show_reward_awarded(result: Dictionary)
 signal show_context_changed(available: bool)
 signal hand_busy_changed(busy: bool)
 signal reward_quote_updated(quote: Dictionary)

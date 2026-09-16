@@ -469,6 +469,7 @@ func _on_show_completed(kind: String) -> void:
 	if result.is_empty():
 		return
 	active_customer.react_to_show(result)
+	EventBus.show_reward_awarded.emit(result)
 	EventBus.notification_requested.emit("Şov bonusu +$%.2f • Biriken $%.2f\n%s" % [result.amount, result.total, result.reaction], 2.0)
 	_publish_quote()
 
