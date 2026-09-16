@@ -31,8 +31,17 @@ var _latest_progress_info: Dictionary = {}
 var _is_clutch_ui_active: bool = false
 var _clutch_ui_generation: int = 0
 var _hand_busy: bool = false
+var _tutorial_panel: PanelContainer
+var _tutorial_title: Label
+var _tutorial_text: Label
+var _tutorial_footer: Label
+var _player: PlayerController
+var _manager: CustomerManager
 
 func _ready() -> void:
+	_player = get_parent().get_node_or_null("PlayerRig")
+	_manager = get_parent().get_node_or_null("CustomerManager")
+	_build_tutorial_panel()
 	if scoop_gesture_container:
 		scoop_gesture_container.visible = false
 	if order_card_container:
@@ -82,6 +91,47 @@ func _ready() -> void:
 	
 	if notification_timer:
 		notification_timer.timeout.connect(_on_notification_timeout)
+
+func _build_tutorial_panel() -> void:
+	_tutorial_panel = PanelContainer.new()
+	_tutorial_panel.name = "TutorialPanel"
+	_tutorial_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tutorial_panel.add_theme_stylebox_override("panel", $DailyEventPanel.get_theme_stylebox("panel"))
+	add_child(_tutorial_panel)
+	_tutorial_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_tutorial_panel.offset_left = -330.0
+	_tutorial_panel.offset_right = -24.0
+	_tutorial_panel.offset_top = 188.0
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 8)
+	_tutorial_panel.add_child(box)
+	_tutorial_title = Label.new()
+	_tutorial_title.add_theme_color_override("font_color", Color(0.45, 0.9, 1.0))
+	_tutorial_title.add_theme_font_size_override("font_size", 15)
+	box.add_child(_tutorial_title)
+	_tutorial_text = Label.new()
+	_tutorial_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tutorial_text.add_theme_font_size_override("font_size", 14)
+	box.add_child(_tutorial_text)
+	_tutorial_footer = Label.new()
+	_tutorial_footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tutorial_footer.add_theme_font_size_override("font_size", 12)
+	_tutorial_footer.modulate = Color(0.75, 0.8, 0.85)
+	box.add_child(_tutorial_footer)
+	# Dialogs must stay above contextual help.
+	move_child(_tutorial_panel, 0)
+
+func _process(_delta: float) -> void:
+	if _player == null or _manager == null:
+		return
+	_tutorial_panel.visible = Tutorial.help_visible and GameManager.day_active
+	if not _tutorial_panel.visible:
+		return
+	var guide := Tutorial.guidance(_player.left_hand, _player.right_hand, _manager.active_order)
+	_tutorial_title.text = guide.step
+	_tutorial_text.text = guide.text
+	_tutorial_footer.text = "Süre durdu · F1: gizle · F2: atla" if Tutorial.training_order != null else "F1: yardımı kapat · A/D: denge"
 
 func _update_labels() -> void:
 	if money_label:
@@ -216,6 +266,9 @@ func _spawn_floating_show_banner(result: Dictionary) -> void:
 		"catch":
 			text_title = "HAVADA KURTARMA!"
 			banner_color = Color(0.35, 1.0, 0.6, 1.0)
+		"spin":
+			text_title = "FIRILDAK ŞOVU!"
+			banner_color = Color(0.35, 0.9, 1.0, 1.0)
 		"bell":
 			text_title = "RİTİM ZİLİ!"
 	
@@ -348,27 +401,21 @@ func _render_order_card() -> void:
 	var matched_toppings: Array = _latest_progress_info.get("matched_toppings", [])
 	var invalid_toppings: Array = _latest_progress_info.get("invalid_toppings", [])
 	
-	var matched_pool = matched_flavors.duplicate()
 	var matched_top_pool = matched_toppings.duplicate()
 	
-	# 1. İstenen dondurma topları
-	for i in range(_current_active_order.flavors.size()):
-		var req_flavor = _current_active_order.flavors[i]
+	# Recipes are multisets: group repeated flavours so tall orders stay legible.
+	for group in _current_active_order.get_flavor_counts_summary():
+		var req_flavor: FlavorData = group.flavor
 		var item_label = Label.new()
 		item_label.add_theme_font_size_override("font_size", 14)
-		
-		var found_match_idx = -1
-		for m in range(matched_pool.size()):
-			if matched_pool[m].id == req_flavor.id:
-				found_match_idx = m
-				break
-				
-		if found_match_idx != -1:
-			item_label.text = "✓ %s" % req_flavor.flavor_name
+		var matched := 0
+		for flavor in matched_flavors:
+			if flavor.id == req_flavor.id: matched += 1
+		var done := matched == int(group.count)
+		item_label.text = "%s %s  %d/%d" % ["✓" if done else "○", req_flavor.flavor_name, matched, group.count]
+		if done:
 			item_label.modulate = Color(0.4, 1.0, 0.4, 1)
-			matched_pool.remove_at(found_match_idx)
 		else:
-			item_label.text = "○ %s" % req_flavor.flavor_name
 			item_label.modulate = Color(0.85, 0.85, 0.85, 1)
 			
 		order_items_list.add_child(item_label)

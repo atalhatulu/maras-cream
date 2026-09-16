@@ -2,8 +2,8 @@ class_name RightHandController
 extends Node3D
 
 @export_group("Kepçeleme Fiziği")
-@export var required_drag_distance: float = 150.0
-@export var required_depth: float = 18.0
+@export var required_drag_distance: float = 180.0
+@export var required_depth: float = 48.0
 @export var dive_spring_speed: float = 24.0
 @export var return_speed_empty: float = 18.0
 @export var return_speed_full: float = 14.0
@@ -36,6 +36,7 @@ var _dive_target_rot: Vector3 = Vector3.ZERO
 var _jiggle_offset: Vector3 = Vector3.ZERO
 var _jiggle_velocity: Vector3 = Vector3.ZERO
 var _prev_world_pos: Vector3
+var _motion_tween: Tween
 
 func _ready() -> void:
 	_base_local_pos = position
@@ -43,6 +44,11 @@ func _ready() -> void:
 	_update_visual()
 	EventBus.scoop_dive_started.connect(_on_scoop_dive_started)
 	EventBus.ice_cream_placed_on_cone.connect(_on_ice_cream_placed_on_cone)
+	EventBus.trash_can_interacted.connect(func():
+		end_dive()
+		if has_ice_cream():
+			consume_scoop()
+	)
 
 func _process(delta: float) -> void:
 	var safe_delta = min(delta, 0.05)
@@ -94,6 +100,8 @@ func _handle_jiggle_physics(delta: float) -> void:
 	ice_cream_scoop_mesh.position = Vector3(0, 0.01, -0.2) + _jiggle_offset
 
 func _on_scoop_dive_started(tub_node: Node3D, flavor: FlavorData, hit_point: Vector3 = Vector3.ZERO) -> void:
+	if is_animating or is_diving:
+		return
 	if has_ice_cream():
 		EventBus.notification_requested.emit("Kepçede zaten dondurma var!", 1.2)
 		return
@@ -124,6 +132,7 @@ func _on_scoop_dive_started(tub_node: Node3D, flavor: FlavorData, hit_point: Vec
 	
 	# Tatlı Daldırma Animasyonu (Anticipation Lift -> Plunge into Tub)
 	var tween = create_tween().set_trans(Tween.TRANS_CUBIC)
+	_motion_tween = tween
 	
 	var prep_pos = _base_local_pos + Vector3(0.02, 0.06, -0.08)
 	var prep_rot = Vector3(deg_to_rad(20.0), 0, deg_to_rad(5.0))
@@ -138,18 +147,20 @@ func _on_scoop_dive_started(tub_node: Node3D, flavor: FlavorData, hit_point: Vec
 	
 	tween.chain().tween_callback(func():
 		is_animating = false
+		if _scoop_progress >= 1.0 and is_diving:
+			_complete_scoop_and_retract()
 	)
 	
 	EventBus.notification_requested.emit("Kepçelemek için fareyi çek...", 0.8)
 
 func process_dive_mouse_input(relative: Vector2) -> void:
-	if not is_diving or _is_scoop_ready_in_dive or is_animating:
+	if not is_diving or _is_scoop_ready_in_dive:
 		return
 		
 	# Aşağı yönlü çekiş hareketi + Dükkan Scoop Speed Upgrade'i
 	var speed_boost = 1.0 + GameManager.get_upgrade_effect("scoop_speed", "scoop_speed")
 	var down_amount = max(0.0, relative.y) * speed_boost
-	var general_drag = relative.length() * 0.4 * speed_boost
+	var general_drag = relative.length() * speed_boost
 	
 	_accumulated_depth += down_amount
 	_accumulated_drag += general_drag
@@ -160,11 +171,11 @@ func process_dive_mouse_input(relative: Vector2) -> void:
 	_scoop_progress = (depth_ratio * 0.7) + (drag_ratio * 0.3)
 	EventBus.scoop_dive_progress.emit(_scoop_progress)
 	
-	if _scoop_progress >= 1.0 and not _is_scoop_ready_in_dive:
-		_is_scoop_ready_in_dive = true
+	if _scoop_progress >= 1.0 and not is_animating:
 		_complete_scoop_and_retract()
 
 func _complete_scoop_and_retract() -> void:
+	_is_scoop_ready_in_dive = true
 	current_scooped_flavor = current_target_flavor
 	_update_visual()
 	
@@ -182,6 +193,7 @@ func _complete_scoop_and_retract() -> void:
 	var return_duration = max(0.12, 0.28 * (1.0 - snap_boost * 0.4))
 	
 	var tween = create_tween().set_trans(Tween.TRANS_CUBIC)
+	_motion_tween = tween
 	var lift_pos = position + Vector3(0, 0.16, 0.10)
 	var lift_rot = Vector3(-deg_to_rad(20.0), -deg_to_rad(5.0), 0.0)
 	
@@ -201,8 +213,11 @@ func _complete_scoop_and_retract() -> void:
 	)
 
 func animate_reach_and_place_on_cone() -> void:
+	if _motion_tween and _motion_tween.is_valid():
+		_motion_tween.kill()
 	is_animating = true
 	var tween = create_tween().set_trans(Tween.TRANS_CUBIC)
+	_motion_tween = tween
 	
 	# 1. Külaha doğru uzanma (Reach to Cone)
 	var reach_pos = _base_local_pos + Vector3(-0.28, -0.05, -0.15)
@@ -222,8 +237,11 @@ func animate_reach_and_place_on_cone() -> void:
 	)
 
 func end_dive() -> void:
-	if not is_diving or is_animating:
+	if not is_diving:
 		return
+	if _motion_tween and _motion_tween.is_valid():
+		_motion_tween.kill()
+	is_animating = false
 		
 	is_diving = false
 	if not _is_scoop_ready_in_dive and current_scooped_flavor == null:

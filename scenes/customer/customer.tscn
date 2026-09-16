@@ -87,6 +87,9 @@ mesh = SubResource("SphereMesh_hand")
 [node name="SpeechLabel3D" type="Label3D" parent="VisualPivot"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 billboard = 1
+pixel_size = 0.0016
+width = 520.0
+autowrap_mode = 3
 text = "..."
 font_size = 26
 outline_size = 5

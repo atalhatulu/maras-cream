@@ -45,7 +45,7 @@ mesh = SubResource("CylinderMesh_top_cone")
 
 [node name="Label3D" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 0.55, 0.15)
-pixel_size = 0.002
-text = "Külah Standı"
-font_size = 28
+pixel_size = 0.0012
+text = "KÜLAH"
+font_size = 24
 outline_size = 4

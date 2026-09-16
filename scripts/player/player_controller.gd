@@ -44,6 +44,8 @@ var is_mouse_captured: bool = true
 var _is_interacting_held: bool = false
 var _is_active_scoop_dive: bool = false
 var _current_highlighted_target: Object = null
+var _last_hint := ""
+var _menu_open := false
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -56,8 +58,24 @@ func _ready() -> void:
 		
 	EventBus.scoop_filled.connect(func(_f): _is_active_scoop_dive = false)
 	EventBus.scoop_dive_cancelled.connect(func(): _is_active_scoop_dive = false)
+	EventBus.shop_opened.connect(func():
+		_menu_open = true
+		_release_mouse()
+	)
+	EventBus.shop_closed.connect(func(): _menu_open = false)
+	get_window().focus_exited.connect(_release_mouse)
+
+func _release_mouse() -> void:
+	_is_interacting_held = false
+	_is_active_scoop_dive = false
+	if right_hand:
+		right_hand.end_dive()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	is_mouse_captured = false
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _menu_open or not GameManager.day_active:
+		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -66,14 +84,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			
 	if event.is_action_pressed("ui_cancel"):
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			is_mouse_captured = false
+			_release_mouse()
 		else:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 			is_mouse_captured = true
 		return
 
+	is_mouse_captured = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if is_mouse_captured:
+		handle_gameplay_input(event)
+
+func handle_gameplay_input(event: InputEvent) -> void:
+	if _menu_open or not GameManager.day_active:
+		return
+	if not event is InputEventMouseMotion:
 		if event.is_action_pressed("interact"):
 			_is_interacting_held = true
 			var collider = get_interacted_collider()
@@ -102,11 +126,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			if left_hand and left_hand.has_cone():
 				left_hand.flip_cone()
 				return
+				
+		elif event.is_action_pressed("spin_cone"):
+			if left_hand and left_hand.has_cone():
+				left_hand.spin_cone()
+				return
 
-	if is_mouse_captured and event is InputEventMouseMotion:
+	if event is InputEventMouseMotion:
 		if _is_active_scoop_dive and right_hand and right_hand.is_diving:
 			# Dondurma kepçeleme sırasında kamera tamamen sabit kalır, fare sadece kepçelemeyi çeker
 			right_hand.process_dive_mouse_input(event.relative)
+			return
+		if _is_interacting_held and right_hand and right_hand.has_ice_cream():
 			return
 			
 		_target_yaw -= event.relative.x * mouse_sensitivity
@@ -131,7 +162,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_target_pitch = clampf(_target_pitch, pitch_min_rad, pitch_max_rad)
 
 func _handle_interact_pressed(collider: Object) -> void:
+	if _menu_open or not GameManager.day_active:
+		return
 	if collider is IceCreamTub:
+		if right_hand and (right_hand.is_animating or right_hand.is_diving):
+			return
 		if collider.has_method("is_unlocked") and not collider.is_unlocked():
 			var flavor_name = collider.get_flavor().flavor_name if collider.get_flavor() else "Bu lezzet"
 			EventBus.notification_requested.emit("%s kilitli! Dükkandan satın alabilirsin." % flavor_name, 1.4)
@@ -206,10 +241,10 @@ func _update_camera_translational_motion(delta: float) -> void:
 	camera.position = camera.position.lerp(target_pos, camera_lean_smooth * delta)
 
 func _update_interaction_highlight() -> void:
-	var current_collider = get_interacted_collider()
+	var current_collider = get_interacted_collider() if GameManager.day_active and not _menu_open else null
 	
 	if current_collider != _current_highlighted_target:
-		if _current_highlighted_target and _current_highlighted_target.has_method("set_highlight"):
+		if is_instance_valid(_current_highlighted_target) and _current_highlighted_target.has_method("set_highlight"):
 			_current_highlighted_target.set_highlight(false)
 			
 		_current_highlighted_target = current_collider
@@ -217,7 +252,9 @@ func _update_interaction_highlight() -> void:
 		if _current_highlighted_target and _current_highlighted_target.has_method("set_highlight"):
 			_current_highlighted_target.set_highlight(true)
 			
-		var hint_text = _get_tooltip_for_collider(current_collider)
+	var hint_text = _get_tooltip_for_collider(current_collider)
+	if hint_text != _last_hint:
+		_last_hint = hint_text
 		EventBus.interaction_target_changed.emit(hint_text)
 
 func _get_tooltip_for_collider(col: Object) -> String:
@@ -228,22 +265,33 @@ func _get_tooltip_for_collider(col: Object) -> String:
 			var fn = col.flavor.flavor_name if col.flavor else ""
 			return "[KİLİTLİ] %s (Dükkandan Aç)" % fn
 		if col.flavor:
-			return "[Sol Tık] %s Al" % col.flavor.flavor_name
+			if right_hand and right_hand.has_ice_cream():
+				return "%s\n[Sağ Tık / Q] Kepçedekini külaha aktar" % col.flavor.flavor_name
+			return "%s\n[Sol Tık basılı] Fareyi aşağı çek" % col.flavor.flavor_name
 		return "[Sol Tık] Dondurma Kepçele"
 	if col is ConeDispenser:
-		return "[Sol Tık] Külah Al"
+		return "Elinde zaten külah var" if left_hand.has_cone() else "KÜLAH\n[Sol Tık / E] Külah al"
 	if col is ToppingBottle:
 		if col.has_method("is_unlocked") and not col.is_unlocked():
 			var tn = col.topping_data.topping_name if col.topping_data else ""
 			return "[KİLİTLİ] %s (Dükkandan Aç)" % tn
 		if col.topping_data:
-			return "[Sol Tık] %s Kullan" % col.topping_data.topping_name
+			var name_text: String = col.topping_data.topping_name
+			if not left_hand.has_cone() or left_hand.stacked_flavors.is_empty():
+				return "%s\nÖnce külaha dondurma koy" % name_text
+			if left_hand.applied_toppings.has(col.topping_data):
+				return "%s\nBu sos zaten eklendi" % name_text
+			return "%s\n[Sol Tık / E] Sos ekle" % name_text
 		return "[Sol Tık] Sos Kullan"
 	if col is MarasBell:
 		return "[Sol Tık] Zile Vur"
+	if col is TubSwitchButton:
+		return "TAT TEPSİSİ\n[Sol Tık / E] Diğer beş tada geç"
 	if col is TrashCan:
 		return "[Sol Tık] Külahı Çöpe At"
 	if col is Customer or (col and col.is_in_group("customer")):
+		if col is Customer and not col.accepts_service():
+			return ""
 		return "Hareket bitince teslim edebilirsin." if left_hand and left_hand.is_action_busy() else "[E] Kuleyi Teslim Et"
 	if col and (col.is_in_group("cone_target") or col is LeftHandController):
 		return "[Sol Tık] Külaha Bırak"

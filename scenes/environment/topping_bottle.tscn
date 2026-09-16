@@ -46,7 +46,10 @@ mesh = SubResource("CylinderMesh_cap")
 [node name="Label3D" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.28, 0)
 billboard = 1
+pixel_size = 0.0008
 text = "SOS"
-font_size = 14
+font_size = 24
+width = 160.0
+autowrap_mode = 3
 outline_size = 3
 outline_modulate = Color(0, 0, 0, 0.95)

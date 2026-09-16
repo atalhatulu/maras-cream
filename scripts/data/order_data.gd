@@ -22,6 +22,10 @@ enum OrderType {
 var is_active: bool = false
 var is_completed: bool = false
 
+func get_reading_grace() -> float:
+	# Reading a larger recipe takes longer, without scaling patience indefinitely.
+	return 3.0 + mini(flavors.size(), 8) * 0.8 + toppings.size()
+
 func calculate_difficulty(balance_tolerance: float = 1.0) -> float:
 	var scoop_count = flavors.size()
 	var unique_flavors: Dictionary = {}

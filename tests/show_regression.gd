@@ -44,6 +44,7 @@ func _ready() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
+	Tutorial.dismissed = true
 	seed(12345)
 	_test_reward_math()
 	_test_show_policy()
@@ -66,9 +67,6 @@ func _run() -> void:
 	print("SHOW REGRESSION: %d checks, %d failures" % [checks, failures.size()])
 	for failure in failures:
 		print("  FAIL: " + failure)
-	for player in AudioManager.get_children():
-		if player is AudioStreamPlayer:
-			player.stop()
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -135,6 +133,12 @@ func _test_show_policy() -> void:
 	close(gourmet.complete("flip", false).amount, 6.0, "Incomplete recipe has no gourmet quality premium")
 	gourmet = ShowSession.new(archetype(CustomerArchetype.ArchetypeType.GOURMET))
 	close(gourmet.complete("flip", true, 3.9).amount, 6.0, "Low score has no gourmet quality premium")
+	tourist = ShowSession.new(archetype(CustomerArchetype.ArchetypeType.TOURIST))
+	close(tourist.complete("spin").amount, 4.0, "Tourist first spin earns $4.00")
+	close(tourist.complete("spin").amount, snappedf(4.0 * 0.35, 0.01), "Tourist repeat spin earns repeated factor")
+	var spin_combo := ShowSession.new(archetype(CustomerArchetype.ArchetypeType.TOURIST))
+	spin_combo.complete("tease")
+	close(spin_combo.complete("spin").amount, 4.0 + 2.0, "Spin following tease earns variety bonus")
 
 func wait_for_customer() -> bool:
 	for frame in range(900):
@@ -247,6 +251,16 @@ func _test_lifecycle() -> void:
 	check(hand.stacked_flavors.is_empty(), "Cancelled transfer cannot add scoop to replacement cone")
 	check(not hand.is_action_busy() and not is_instance_valid(hand._flying_scoop), "Cancelled transfer releases animation and flying mesh")
 	prepare_order()
+	check(hand.spin_cone(), "Spin starts for waiting customer with ice cream")
+	check(hand.is_spinning and hand.is_action_busy(), "Spin holds hand busy")
+	check(not hand.flip_cone() and not hand.perform_trick(), "Spin blocks other actions")
+	await pause(0.8)
+	check(not hand.is_spinning and not hand.is_action_busy(), "Spin completes cleanly")
+	close(hand.cone_pivot.rotation.y, 0.0, "Spin resets rotation Y to 0")
+	close(manager.show_session.cone_bonus, 5.5, "Spin awards expected reward with variety")
+	hand.reset_cone()
+	await pause(0.6)
+	prepare_order()
 	check(hand.perform_trick(), "Drop scenario starts")
 	hand._trigger_cone_drop()
 	await pause(0.8)
@@ -294,7 +308,7 @@ func _test_lifecycle() -> void:
 	for i in range(20):
 		manager._on_bell_rung(i)
 	check(waiting_customer._freeze_timer <= float(manager.show_session.profile.pause), "Bell spam cannot exceed live patience budget")
-	for frame in range(600):
+	for frame in range(1800):
 		waiting_customer._update_score_and_patience(1.0 / 60.0)
 	check(manager.active_order.current_score < score_before, "Live score decays after finite entertainment budget")
 	close(manager.show_session.cone_bonus, 0.0, "Bell spam earns no show money")
@@ -310,6 +324,11 @@ func _test_full_day() -> void:
 	GameManager.start_day(1)
 	# Heatwave + upgrade exercise live quote refresh using real upgrade data.
 	GameManager.current_daily_event_id = "HEATWAVE"
+	var event_details := DailyEvents.details("HEATWAVE")
+	GameManager.current_daily_event_title = event_details.title
+	GameManager.current_daily_event_desc = event_details.description
+	EventBus.daily_event_announced.emit("HEATWAVE", event_details.title, event_details.description)
+	hud._update_labels()
 	GameManager.upgrades["tip_mastery"].current_level = 2
 	var expected_base := 0.0
 	var expected_tip := 0.0
@@ -465,6 +484,7 @@ func _start_event_day(day: int, arch: CustomerArchetype, target: int) -> bool:
 	manager._archetypes.assign([arch])
 	GameManager.start_day(day)
 	GameManager.day_customer_target = target
+	hud._update_labels()
 	hud.get_node("DaySummaryDialog").visible = false
 	return await wait_for_customer()
 

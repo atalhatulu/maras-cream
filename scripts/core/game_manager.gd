@@ -92,27 +92,27 @@ func _load_initial_toppings() -> void:
 
 func _init_upgrade_catalog() -> void:
 	# 1. KEPÇE GELİŞTİRMELERİ (SCOOP)
-	_register_upgrade("scoop_speed", "Usta Kepçeleme", "Dondurmayı küvetten sıyırma ve oyma hızını artırır.", UpgradeData.Category.SCOOP, 5, 30.0, 1.55, 1, {"scoop_speed": 0.15})
-	_register_upgrade("snap_lift", "Çevik Bilek", "Kepçeyi doldurup küvetten çıkarma ve kaldırma hızını artırır.", UpgradeData.Category.SCOOP, 5, 35.0, 1.55, 1, {"snap_speed": 0.20})
+	_register_upgrade("scoop_speed", "Usta Kepçeleme", "Dondurmayı küvetten sıyırma ve oyma hızını artırır.", UpgradeData.Category.SCOOP, 5, 90.0, 1.55, 1, {"scoop_speed": 0.15})
+	_register_upgrade("snap_lift", "Çevik Bilek", "Kepçeyi doldurup küvetten çıkarma ve kaldırma hızını artırır.", UpgradeData.Category.SCOOP, 5, 105.0, 1.55, 1, {"snap_speed": 0.20})
 	
 	# 2. KÜLAH VE DENGE GELİŞTİRMELERİ (CONE)
-	_register_upgrade("cone_stability", "Geniş Külah Tabanı", "Külahın kritik devrilme açısı toleransını genişletir.", UpgradeData.Category.CONE, 5, 40.0, 1.60, 1, {"angle_tolerance": 2.5})
-	_register_upgrade("recovery_torque", "Bilek Destek Gücü", "[A]/[D] tuşlarıyla külahı toparlama ve düzeltme torkunu güçlendirir.", UpgradeData.Category.CONE, 5, 45.0, 1.60, 2, {"torque_boost": 0.12})
-	_register_upgrade("cushion_spring", "Şok Emici Tutuş", "Top külaha indiğinde oluşan dikey ve yatay sarsıntıyı azaltır.", UpgradeData.Category.CONE, 5, 35.0, 1.50, 2, {"cushion_damping": 0.15})
+	_register_upgrade("cone_stability", "Geniş Külah Tabanı", "Külahın kritik devrilme açısı toleransını genişletir.", UpgradeData.Category.CONE, 5, 120.0, 1.60, 1, {"angle_tolerance": 2.5})
+	_register_upgrade("recovery_torque", "Bilek Destek Gücü", "[A]/[D] tuşlarıyla külahı toparlama ve düzeltme torkunu güçlendirir.", UpgradeData.Category.CONE, 5, 135.0, 1.60, 2, {"torque_boost": 0.12})
+	_register_upgrade("cushion_spring", "Şok Emici Tutuş", "Top külaha indiğinde oluşan dikey ve yatay sarsıntıyı azaltır.", UpgradeData.Category.CONE, 5, 105.0, 1.50, 2, {"cushion_damping": 0.15})
 	
 	# 3. MÜŞTERİ VE EKONOMİ GELİŞTİRMELERİ (CUSTOMER)
-	_register_upgrade("patience_boost", "Güler Yüz & Sohbet", "Müşterilerin bekleme sabrını artırır, puan düşüşünü yavaşlatır.", UpgradeData.Category.CUSTOMER, 5, 50.0, 1.65, 1, {"patience_decay_reduction": 0.10})
-	_register_upgrade("tip_mastery", "Bahşiş Cazibesi", "Tüm müşterilerden alınan bahşiş çarpanını kalıcı olarak yükseltir.", UpgradeData.Category.CUSTOMER, 5, 60.0, 1.70, 2, {"tip_multiplier_bonus": 0.15})
+	_register_upgrade("patience_boost", "Güler Yüz & Sohbet", "Müşterilerin bekleme sabrını artırır, puan düşüşünü yavaşlatır.", UpgradeData.Category.CUSTOMER, 5, 150.0, 1.65, 1, {"patience_decay_reduction": 0.10})
+	_register_upgrade("tip_mastery", "Bahşiş Cazibesi", "Tüm müşterilerden alınan bahşiş çarpanını kalıcı olarak yükseltir.", UpgradeData.Category.CUSTOMER, 5, 180.0, 1.70, 2, {"tip_multiplier_bonus": 0.15})
 	
 	# 4. YENİ DONDURMA TATLARI (FLAVOR UNLOCK)
-	_register_resource_unlock("flavor_muz", "Muzlu Dondurma", "Menüye taze muzlu dondurma ekler. Çocukların ve turistlerin gözdesi.", UpgradeData.Category.FLAVOR, 45.0, 1, "muz", true)
-	_register_resource_unlock("flavor_mango", "Tropikal Mango", "Menüye egzotik mango lezzetini katar. Yüksek fiyat getirir.", UpgradeData.Category.FLAVOR, 65.0, 2, "mango", true)
-	_register_resource_unlock("flavor_bogurtlen", "Orman Böğürtleni", "Menüye orman meyveleri aroması ekler. Gurmeler bayılır.", UpgradeData.Category.FLAVOR, 80.0, 3, "bogurtlen", true)
-	_register_resource_unlock("flavor_limon", "Ferah Limon", "Menüye ekşi-ferah limon lezzetini katar.", UpgradeData.Category.FLAVOR, 70.0, 3, "limon", true)
-	_register_resource_unlock("flavor_nane", "Nane Ferahlığı", "Menüye ferahlatıcı nane aroması ekler.", UpgradeData.Category.FLAVOR, 95.0, 4, "nane", true)
+	_register_resource_unlock("flavor_muz", "Muzlu Dondurma", "Menüye taze muzlu dondurma ekler. Çocukların ve turistlerin gözdesi.", UpgradeData.Category.FLAVOR, 120.0, 1, "muz", true)
+	_register_resource_unlock("flavor_mango", "Tropikal Mango", "Menüye egzotik mango lezzetini katar.", UpgradeData.Category.FLAVOR, 180.0, 2, "mango", true)
+	_register_resource_unlock("flavor_bogurtlen", "Orman Böğürtleni", "Menüye orman meyveleri aroması ekler. Gurmeler bayılır.", UpgradeData.Category.FLAVOR, 240.0, 3, "bogurtlen", true)
+	_register_resource_unlock("flavor_limon", "Ferah Limon", "Menüye ekşi-ferah limon lezzetini katar.", UpgradeData.Category.FLAVOR, 200.0, 3, "limon", true)
+	_register_resource_unlock("flavor_nane", "Nane Ferahlığı", "Menüye ferahlatıcı nane aroması ekler.", UpgradeData.Category.FLAVOR, 280.0, 4, "nane", true)
 	
 	# 5. YENİ SÜSLEMELER (TOPPING UNLOCK)
-	_register_resource_unlock("topping_antep_fistigi", "Hakiki Antep Fıstığı Tozu", "Külahların üzerine serpilebilecek enfes Antep Fıstığı tozu.", UpgradeData.Category.TOPPING, 55.0, 2, "antep_fistigi", false)
+	_register_resource_unlock("topping_antep_fistigi", "Hakiki Antep Fıstığı Tozu", "Külahların üzerine serpilebilecek enfes Antep Fıstığı tozu.", UpgradeData.Category.TOPPING, 150.0, 2, "antep_fistigi", false)
 
 func _register_upgrade(id: String, d_name: String, desc: String, cat: UpgradeData.Category, max_lvl: int, b_cost: float, cost_m: float, u_day: int, effects: Dictionary) -> void:
 	var up = UpgradeData.new()

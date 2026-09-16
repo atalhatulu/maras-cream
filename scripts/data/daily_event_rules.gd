@@ -4,7 +4,7 @@ const EVENTS := {
 	"NORMAL": {"title": "Güneşli ve Sakin Bir Gün", "description": "Standart fiyatlar ve müşteri tercihleri geçerli."},
 	"HEATWAVE": {"title": "Sıcak Hava Dalgası", "description": "Top başı +$1. Güvenli denge açısı %10 daha dar."},
 	"TOURIST_BUS": {"title": "Turist Kafilesi", "description": "Daha çok turist! Turist bahşişi +%25; farklı şovlara +$1, şov sınırına +$2."},
-	"CHILDRENS_DAY": {"title": "Çocuk Şenliği", "description": "Daha çok çocuk! Açık iki sosu da isterler. Çocuklara ikram +%50; şov sabrı +2 sn."},
+	"CHILDRENS_DAY": {"title": "Çocuk Şenliği", "description": "Daha çok çocuk! Açık soslardan iki farklı sos isterler. Çocuklara ikram +%50; şov sabrı +2 sn."},
 	"GOURMET_VISIT": {"title": "Gurme Teftişi", "description": "Daha çok gurme! Düşürmeden, çöpe atmadan 4,5+ puanlı doğru teslim: +$8 ve +3 itibar."}
 }
 const INTRODUCTIONS := ["NORMAL", "HEATWAVE", "TOURIST_BUS", "CHILDRENS_DAY", "GOURMET_VISIT"]

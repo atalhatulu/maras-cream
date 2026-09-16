@@ -7,19 +7,19 @@ const DailyEvents = preload("res://scripts/data/daily_event_rules.gd")
 ## Replacing a cone forfeits its bonus without refreshing novelty or patience.
 const PROFILES := {
 	CustomerArchetype.ArchetypeType.BUSINESS: {
-		"tease": 3.0, "flip": 2.0, "catch": 2.0, "cap": 6.0, "pause": 1.2,
+		"tease": 3.0, "flip": 2.0, "catch": 2.0, "spin": 2.0, "cap": 6.0, "pause": 1.2,
 		"repeat": 0.0, "variety": 0.0, "hint": "Kısa bir şov yeter; acelem var."},
 	CustomerArchetype.ArchetypeType.TOURIST: {
-		"tease": 3.5, "flip": 4.5, "catch": 3.0, "cap": 16.0, "pause": 6.0,
+		"tease": 3.5, "flip": 4.5, "catch": 3.0, "spin": 4.0, "cap": 16.0, "pause": 6.0,
 		"repeat": 0.35, "variety": 2.0, "hint": "Farklı Maraş numaralarını görmek isterim!"},
 	CustomerArchetype.ArchetypeType.CHILD: {
-		"tease": 4.0, "flip": 4.0, "catch": 3.0, "cap": 14.0, "pause": 7.0,
+		"tease": 4.0, "flip": 4.0, "catch": 3.0, "spin": 4.5, "cap": 14.0, "pause": 7.0,
 		"repeat": 0.35, "variety": 1.0, "hint": "Beni şaşırt! Hep aynı numara olmasın."},
 	CustomerArchetype.ArchetypeType.GOURMET: {
-		"tease": 1.0, "flip": 6.0, "catch": 2.0, "cap": 12.0, "pause": 3.0,
+		"tease": 1.0, "flip": 6.0, "catch": 2.0, "spin": 3.0, "cap": 12.0, "pause": 3.0,
 		"repeat": 0.25, "variety": 0.0, "hint": "Doğru sipariş ve ters külah: gerçek ustalık."},
 	CustomerArchetype.ArchetypeType.INFLUENCER: {
-		"tease": 4.0, "flip": 5.0, "catch": 3.0, "cap": 22.0, "pause": 6.0,
+		"tease": 4.0, "flip": 5.0, "catch": 3.0, "spin": 5.0, "cap": 22.0, "pause": 6.0,
 		"repeat": 0.25, "variety": 4.0, "hint": "Farklı hareketleri peş peşe yap, çekiyorum!"}
 }
 
@@ -44,7 +44,7 @@ func lose_cone() -> void:
 	catch_rewarded = false
 
 func complete(kind: String, correct_order: bool = false, score: float = 5.0) -> Dictionary:
-	if kind not in ["tease", "flip", "catch", "bell"]:
+	if kind not in ["tease", "flip", "catch", "bell", "spin"]:
 		return {}
 	var previous := int(counts.get(kind, 0))
 	counts[kind] = previous + 1
@@ -83,6 +83,8 @@ func complete(kind: String, correct_order: bool = false, score: float = 5.0) -> 
 		reaction = "Bu numarayı gördüm; başka bir şey dene!"
 	elif kind == "catch":
 		reaction = "Oh be! Son anda kurtardın!"
+	elif kind == "spin":
+		reaction = "Vay canına! Fırıldak gibi döndürdün!"
 	elif customer_type == CustomerArchetype.ArchetypeType.GOURMET and kind == "flip":
 		reaction = "İşte hakiki Maraş kıvamı!"
 	elif show_count > 1 and float(profile.variety) > 0.0:

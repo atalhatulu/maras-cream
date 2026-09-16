@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 EventBus="*res://scripts/core/event_bus.gd"
 GameManager="*res://scripts/core/game_manager.gd"
 AudioManager="*res://scripts/core/audio_manager.gd"
+Tutorial="*res://scripts/core/tutorial.gd"
 
 [display]
 
@@ -27,6 +28,15 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
 [input]
+
+toggle_help={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194332)]
+}
+skip_tutorial={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194333)]
+}
 
 balance_left={
 "deadzone": 0.5,
@@ -55,6 +65,11 @@ secondary_interact={
 flip_cone={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":70,"key_label":0,"unicode":102,"location":0,"echo":false,"script":null)
+]
+}
+spin_cone={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":82,"key_label":0,"unicode":114,"location":0,"echo":false,"script":null)
 ]
 }
 

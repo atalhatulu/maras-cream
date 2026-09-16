@@ -59,6 +59,7 @@ var _is_disposing: bool = false
 var _show_cooldown: float = 0.0
 var is_performing_trick: bool = false
 var is_flipping: bool = false
+var is_spinning: bool = false
 var is_clutch_active: bool = false
 var clutch_used_this_cone: bool = false
 var _clutch_timer: float = 0.0
@@ -93,7 +94,6 @@ func _process(delta: float) -> void:
 	_show_cooldown = maxf(0.0, _show_cooldown - delta)
 	var safe_delta = min(delta, 0.05)
 	if has_cone():
-		_simulate_balance_physics(safe_delta)
 		_simulate_scoops_secondary_motion(safe_delta)
 		_update_visual_tilt(safe_delta)
 	else:
@@ -101,6 +101,11 @@ func _process(delta: float) -> void:
 		angular_velocity = 0.0
 		_current_input_torque = 0.0
 		EventBus.cone_balance_updated.emit(0.0, 0.0)
+
+func _physics_process(delta: float) -> void:
+	if has_cone():
+		_simulate_balance_physics(delta)
+	Tutorial.observe_balance(self, delta)
 
 func _simulate_balance_physics(delta: float) -> void:
 	if is_flipping:
@@ -410,6 +415,8 @@ func _on_place_on_cone_attempted() -> void:
 	if right_hand == null or not right_hand.has_ice_cream():
 		EventBus.notification_requested.emit("Kepçede dondurma yok!", 1.2)
 		return
+	if right_hand.is_animating:
+		return
 		
 	right_hand.animate_reach_and_place_on_cone()
 	var flavor = right_hand.get_scooped_flavor()
@@ -599,6 +606,44 @@ func flip_cone() -> bool:
 	)
 	return true
 
+func spin_cone() -> bool:
+	if not _can_start_show():
+		return false
+		
+	var effective_max_angle := get_safe_angle()
+	if abs(current_angle_deg) > effective_max_angle * 0.72:
+		EventBus.notification_requested.emit("Kule çok eğik, döndüremezsin!", 1.2)
+		return false
+		
+	is_spinning = true
+	_emit_busy()
+	EventBus.show_started.emit("spin")
+	EventBus.notification_requested.emit("MARAŞ FIRILDAK ŞOVU! 🌪️ (360° Eksen Dönüşü)", 1.4)
+	
+	var spin_lift_pos = _base_local_pos + Vector3(0.04, 0.10, -0.20)
+	var tween = create_tween().set_trans(Tween.TRANS_QUAD)
+	_show_tween = tween
+	
+	# 1. Külahı hafifçe kaldır ve öne al
+	tween.tween_property(self, "position", spin_lift_pos, 0.14).set_ease(Tween.EASE_OUT)
+	# 2. Kendi Y ekseninde tam 360 derece hızlı dönüş
+	tween.parallel().tween_property(cone_pivot, "rotation:y", deg_to_rad(360.0), 0.38).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	
+	# 3. Normal pozisyona geri yerleş
+	tween.tween_property(self, "position", _base_local_pos, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(cone_pivot, "rotation:y", 0.0, 0.01)
+	
+	tween.tween_callback(func():
+		is_spinning = false
+		_show_tween = null
+		_show_cooldown = 0.6
+		if cone_pivot:
+			cone_pivot.rotation.y = 0.0
+		_emit_busy()
+		EventBus.show_completed.emit("spin")
+	)
+	return true
+
 func _start_clutch_window(fall_dir: float) -> void:
 	if is_clutch_active or not has_cone() or clutch_used_this_cone or stacked_flavors.size() < 2:
 		return
@@ -641,6 +686,7 @@ func reset_cone() -> void:
 	angular_velocity = 0.0
 	_current_input_torque = 0.0
 	is_flipping = false
+	is_spinning = false
 	is_clutch_active = false
 	clutch_used_this_cone = false
 	_clutch_timer = 0.0
@@ -686,7 +732,7 @@ func _get_right_hand() -> RightHandController:
 	return null
 
 func is_action_busy() -> bool:
-	return is_performing_trick or is_flipping or is_clutch_active or is_reaching_cone or _is_transferring or _is_disposing
+	return is_performing_trick or is_flipping or is_spinning or is_clutch_active or is_reaching_cone or _is_transferring or _is_disposing
 
 func get_safe_angle() -> float:
 	var stability_bonus := GameManager.get_upgrade_effect("cone_stability", "angle_tolerance")
@@ -708,19 +754,23 @@ func _cancel_show() -> void:
 		_show_tween.kill()
 	_show_tween = null
 	var was_flipping := is_flipping
-	var was_busy := is_performing_trick or is_flipping or is_clutch_active
+	var was_spinning := is_spinning
+	var was_busy := is_performing_trick or is_flipping or is_spinning or is_clutch_active
 	is_performing_trick = false
 	is_flipping = false
+	is_spinning = false
 	is_clutch_active = false
 	_clutch_timer = 0.0
 	if was_busy:
 		position = _base_local_pos
 		rotation = Vector3.ZERO
 		if cone_pivot:
-			cone_pivot.rotation.z = -deg_to_rad(current_angle_deg)
+			cone_pivot.rotation = Vector3(0, 0, -deg_to_rad(current_angle_deg))
 		EventBus.show_cancelled.emit()
 	if was_flipping:
 		EventBus.cone_flipped.emit(false)
+	if was_spinning and cone_pivot:
+		cone_pivot.rotation.y = 0.0
 	_emit_busy()
 
 func _cancel_transfer() -> void:

@@ -5,13 +5,61 @@ var _samples: Dictionary = {}
 var _sfx_players: Array[AudioStreamPlayer] = []
 var _ambience_player: AudioStreamPlayer = null
 const SFX_PLAYER_COUNT: int = 10
+var _shutting_down := false
+var _next_player := 0
+var _last_wobble_msec := -1000
+var _quitting := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().auto_accept_quit = false
 	_init_players()
 	_generate_all_procedural_sounds()
 	_connect_gameplay_events()
 	_start_ambience()
+
+func shutdown() -> void:
+	_shutting_down = true
+	for player in _sfx_players:
+		player.stop()
+		player.stream = null
+	if is_instance_valid(_ambience_player):
+		_ambience_player.stop()
+		_ambience_player.stream = null
+	_samples.clear()
+
+func _exit_tree() -> void:
+	shutdown()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		finish_and_quit()
+
+func shutdown_and_drain() -> bool:
+	# stop() queues work for the audio thread. Observe resource release instead
+	# of assuming two rendered frames are also two audio mixer iterations.
+	var pending: Array[WeakRef] = []
+	for sample in _samples.values():
+		pending.append(weakref(sample))
+	shutdown()
+	var deadline := Time.get_ticks_msec() + 1000
+	while Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+		var remaining := false
+		for ref in pending:
+			if ref.get_ref() != null:
+				remaining = true
+				break
+		if not remaining:
+			return true
+	return false
+
+func finish_and_quit(exit_code: int = 0) -> void:
+	if _quitting:
+		return
+	_quitting = true
+	await shutdown_and_drain()
+	get_tree().quit(exit_code)
 
 func _init_players() -> void:
 	for i in range(SFX_PLAYER_COUNT):
@@ -59,8 +107,14 @@ func _connect_gameplay_events() -> void:
 # --- SES ÇALMA MERKEZİ ---
 
 func play_sfx(sfx_name: String, pitch: float = 1.0, volume_db: float = 0.0) -> void:
-	if not _samples.has(sfx_name):
+	if _shutting_down or not _samples.has(sfx_name):
 		return
+	# Critical tilt is emitted every frame; one warning pulse is enough.
+	if sfx_name == "cone_wobble":
+		var now := Time.get_ticks_msec()
+		if now - _last_wobble_msec < 220:
+			return
+		_last_wobble_msec = now
 		
 	var stream: AudioStreamWAV = _samples[sfx_name]
 	
@@ -72,7 +126,9 @@ func play_sfx(sfx_name: String, pitch: float = 1.0, volume_db: float = 0.0) -> v
 			break
 			
 	if target_player == null:
-		target_player = _sfx_players[0] # En eskisini kullan
+		target_player = _sfx_players[_next_player]
+		_next_player = (_next_player + 1) % _sfx_players.size()
+	target_player.stop()
 		
 	target_player.stream = stream
 	target_player.pitch_scale = clampf(pitch, 0.5, 2.0)

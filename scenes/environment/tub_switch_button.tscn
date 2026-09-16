@@ -63,7 +63,8 @@ mesh = SubResource("CylinderMesh_cap")
 [node name="ButtonLabel" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.26, 0)
 billboard = 1
-text = "SIRA DEĞİŞTİR [E]"
+pixel_size = 0.0012
+text = "DİĞER TATLAR"
 font_size = 18
 outline_size = 4
 outline_modulate = Color(0, 0, 0, 0.95)

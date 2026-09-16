@@ -38,6 +38,7 @@ var _is_highlighted: bool = false
 var _anim_time: float = 0.0
 var _freeze_timer: float = 0.0
 var _patience_depleted_timer: float = 0.0
+var _reading_time_left: float = 0.0
 const MAX_PATIENCE_GRACE_TIME: float = 14.0
 
 var _target_look_y: float = 0.0
@@ -141,6 +142,7 @@ func _start_arrival_tween() -> void:
 func _on_arrived_at_counter() -> void:
 	state = State.WAITING
 	_is_score_decaying = true
+	_reading_time_left = current_order.get_reading_grace() if current_order else 0.0
 	
 	if speech_label_3d and current_order:
 		var flavor_names: Array[String] = []
@@ -233,7 +235,15 @@ func _update_look_at(delta: float) -> void:
 	head_pivot.rotation.x = _target_look_x
 
 func _update_score_and_patience(delta: float) -> void:
+	if Tutorial.protects(current_order):
+		return
 	if (state == State.WAITING or state == State.ORDER_IN_PROGRESS or state == State.IMPATIENT or state == State.ORDER_READY or state == State.DISAPPOINTED) and _is_score_decaying and current_order:
+		if _reading_time_left > 0.0:
+			var used := minf(delta, _reading_time_left)
+			_reading_time_left -= used
+			delta -= used
+			if delta <= 0.0:
+				return
 		if _freeze_timer > 0.0:
 			_freeze_timer -= delta
 		else:
@@ -256,7 +266,8 @@ func _update_score_and_patience(delta: float) -> void:
 						speech_label_3d.modulate = Color(1.0, 0.65, 0.25, 1.0)
 			else:
 				_patience_depleted_timer += delta
-				if _patience_depleted_timer >= MAX_PATIENCE_GRACE_TIME:
+				var grace := archetype.patience_grace_time if archetype else MAX_PATIENCE_GRACE_TIME
+				if _patience_depleted_timer >= grace:
 					_trigger_patience_timeout()
 
 func _on_ice_cream_added(_flavor: FlavorData, total_count: int) -> void:

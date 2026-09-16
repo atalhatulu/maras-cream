@@ -211,6 +211,11 @@ func _spawn_next_customer() -> void:
 	active_archetype = pick_weighted_archetype() if not _archetypes.is_empty() else null
 	show_session = ShowSession.new(active_archetype, GameManager.current_daily_event_id)
 	active_order = generate_order_for_archetype(active_archetype)
+	if Tutorial.should_offer():
+		active_order.flavors.assign([GameManager.get_flavor_by_id("sade"), GameManager.get_flavor_by_id("sade")])
+		active_order.toppings.assign([GameManager.get_topping_by_id("cikolata_sos")])
+		active_order.calculate_difficulty()
+		Tutorial.begin(active_order)
 	customer_inst.initialize(active_order, spawn_marker.global_position, counter_marker.global_position, active_archetype)
 
 func _on_bell_rung(_combo: int) -> void:
@@ -406,6 +411,9 @@ func _complete_active_order() -> void:
 		return
 	var progress := active_order.check_progress(_last_cone_flavors, _last_cone_toppings)
 	if not progress.is_completed:
+		return
+	if Tutorial.protects(active_order) and not Tutorial.balance_practiced:
+		EventBus.notification_requested.emit("Teslimden önce A/D ile dengeyi dene. F2: öğreticiyi atla.", 2.0)
 		return
 	var quote := get_reward_quote()
 	var final_score := active_order.current_score
