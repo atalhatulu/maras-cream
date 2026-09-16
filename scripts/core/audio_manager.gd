@@ -94,12 +94,20 @@ func _connect_gameplay_events() -> void:
 	)
 	EventBus.upgrade_purchased.connect(func(_id, _lvl): play_sfx("upgrade_purchase", 1.0))
 	EventBus.customer_arrived.connect(func(_c, _o): play_sfx("customer_arrive", 1.0))
-	EventBus.show_started.connect(func(_kind): play_sfx("trick_swoosh", 1.0))
+	EventBus.show_started.connect(func(kind):
+		if kind == "spin":
+			play_sfx("spin_whir", 1.0)
+		else:
+			play_sfx("trick_swoosh", 1.0)
+	)
 	EventBus.cone_critical_tilt.connect(func(_ratio): play_sfx("cone_wobble", 1.0, -6.0))
 	EventBus.clutch_catch_succeeded.connect(func(): play_sfx("customer_wow", 1.1, 2.0))
 	EventBus.show_reward_awarded.connect(func(res):
 		if float(res.get("amount", 0.0)) > 0.0:
-			play_sfx("customer_happy", 1.05, 1.0)
+			if str(res.get("kind", "")) in ["flip", "spin"] and not bool(res.get("repeated", false)):
+				play_sfx("maras_hey", 1.0, 1.5)
+			else:
+				play_sfx("customer_happy", 1.05, 1.0)
 		elif float(res.get("penalty", 0.0)) > 0.0:
 			play_sfx("customer_impatient", 0.95)
 	)
@@ -164,6 +172,8 @@ func _generate_all_procedural_sounds() -> void:
 	_samples["button_click"] = _gen_tone_burst(650.0, 500.0, 0.05, 0.3, false)
 	_samples["button_hover"] = _gen_tone_burst(440.0, 480.0, 0.03, 0.15, false)
 	_samples["ambience"] = _gen_ambience_hum(4.0)
+	_samples["spin_whir"] = _gen_spin_whir(0.32)
+	_samples["maras_hey"] = _gen_maras_hey(0.38)
 
 func _create_wav(byte_data: PackedByteArray, sample_rate: int = 22050, loop: bool = false) -> AudioStreamWAV:
 	var wav = AudioStreamWAV.new()
@@ -335,3 +345,45 @@ func _gen_ambience_hum(duration: float) -> AudioStreamWAV:
 		bytes.encode_s16(i * 2, val16)
 		
 	return _create_wav(bytes, sample_rate, true)
+
+func _gen_spin_whir(duration: float = 0.32) -> AudioStreamWAV:
+	var sample_rate = 22050
+	var total_samples = int(sample_rate * duration)
+	var bytes = PackedByteArray()
+	bytes.resize(total_samples * 2)
+	
+	for i in range(total_samples):
+		var t = float(i) / float(sample_rate)
+		var progress = float(i) / float(total_samples)
+		var env = sin(progress * PI)
+		var cur_f = 260.0 + 480.0 * sin(progress * PI)
+		var tone = sin(TAU * cur_f * t)
+		var noise = fmod(sin(t * 14321.0) * 43210.0, 2.0) - 1.0
+		var s = (tone * 0.7) + (noise * 0.3 * env)
+		var sample = s * env * 0.65
+		var val16 = int(clampf(sample, -1.0, 1.0) * 32767.0)
+		bytes.encode_s16(i * 2, val16)
+		
+	return _create_wav(bytes, sample_rate)
+
+func _gen_maras_hey(duration: float = 0.38) -> AudioStreamWAV:
+	var sample_rate = 22050
+	var total_samples = int(sample_rate * duration)
+	var bytes = PackedByteArray()
+	bytes.resize(total_samples * 2)
+	
+	for i in range(total_samples):
+		var t = float(i) / float(sample_rate)
+		var progress = float(i) / float(total_samples)
+		var base_f = lerpf(260.0, 440.0, sin(progress * 0.5 * PI))
+		var env = exp(-progress * 2.8) * sin(progress * PI)
+		var h1 = sin(TAU * base_f * t)
+		var h2 = sin(TAU * base_f * 2.0 * t) * 0.5
+		var h3 = sin(TAU * base_f * 3.0 * t) * 0.25
+		var breath = (fmod(sin(t * 18765.4) * 32145.6, 0.4) - 0.2) * exp(-progress * 8.0)
+		var s = (h1 + h2 + h3 + breath) * 0.6
+		var sample = s * env * 0.8
+		var val16 = int(clampf(sample, -1.0, 1.0) * 32767.0)
+		bytes.encode_s16(i * 2, val16)
+		
+	return _create_wav(bytes, sample_rate)
