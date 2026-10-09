@@ -700,8 +700,12 @@ func _clutch_recover() -> void:
 		return
 	is_clutch_active = false
 	_clutch_timer = 0.0
-	angular_velocity = -_clutch_fall_dir * 42.0
-	current_angle_deg = move_toward(current_angle_deg, 0.0, 20.0)
+	angular_velocity = -_clutch_fall_dir * 30.0
+	current_angle_deg = _clutch_fall_dir * minf(absf(current_angle_deg), get_safe_angle() * 0.38)
+	# A brief recoil makes a successful last-second catch readable.
+	var catch_tween: Tween = create_tween()
+	catch_tween.tween_property(cone_pivot, "rotation:z", -deg_to_rad(current_angle_deg + _clutch_fall_dir * 9.0), 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	catch_tween.tween_property(cone_pivot, "rotation:z", -deg_to_rad(current_angle_deg), 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_emit_busy()
 	EventBus.clutch_catch_succeeded.emit()
 	EventBus.show_completed.emit("catch")
