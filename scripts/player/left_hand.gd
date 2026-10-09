@@ -64,6 +64,7 @@ var _flying_scoop: MeshInstance3D
 var _show_customer_available: bool = false
 var _is_disposing: bool = false
 var _show_cooldown: float = 0.0
+var _tease_variant: int = 0
 var is_performing_trick: bool = false
 var is_flipping: bool = false
 var is_spinning: bool = false
@@ -579,9 +580,11 @@ func perform_trick() -> bool:
 	is_performing_trick = true
 	_emit_busy()
 	EventBus.show_started.emit("tease")
-	var forward_pos = _base_local_pos + Vector3(0.08, 0.04, -0.36)
-	var hide_pos = _base_local_pos + Vector3(-0.16, -0.06, 0.22)
-	var hide_rot = Vector3(deg_to_rad(12.0), deg_to_rad(35.0), -deg_to_rad(15.0))
+	_tease_variant = (_tease_variant + 1) % 3
+	var side: float = -1.0 if _tease_variant == 1 else 1.0
+	var forward_pos: Vector3 = _base_local_pos + Vector3(side * 0.08, 0.04, -0.36)
+	var hide_pos: Vector3 = _base_local_pos + Vector3(-side * 0.16, -0.06, 0.22)
+	var hide_rot: Vector3 = Vector3(deg_to_rad(12.0), deg_to_rad(side * 35.0), -deg_to_rad(side * 15.0))
 	
 	var tween = create_tween().set_trans(Tween.TRANS_CUBIC)
 	_show_tween = tween
