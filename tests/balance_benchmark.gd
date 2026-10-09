@@ -72,6 +72,25 @@ func _run() -> void:
 				Input.action_release("balance_right")
 				results.append({"scoops": count, "fps": fps, "correction_every_250ms": assisted, "seconds_to_rescue_or_30": snappedf(elapsed, 0.01), "peak_angle": snappedf(peak, 0.01)})
 	print("BALANCE MEASUREMENTS ", JSON.stringify(results))
+	# Regression: visual warning shake must not accumulate pivot displacement.
+	hand.reset_cone()
+	hand.take_cone()
+	hand.stacked_flavors.append(GameManager.get_flavor_by_id("sade"))
+	hand.current_angle_deg = hand.get_safe_angle() * 0.90
+	for tick in range(1200):
+		hand._physics_time += 1.0 / 60.0
+		hand._update_visual_tilt(1.0 / 60.0)
+		if absf(hand.cone_pivot.position.x) > 0.01 or absf(hand.cone_pivot.position.z + 0.05) > 0.01:
+			push_error("BALANCE REGRESSION: warning shake displaced cone pivot")
+			break
+	# Disposal animation must own the pivot position.
+	hand._is_disposing = true
+	hand.cone_pivot.position = Vector3(0.4, -0.2, -0.3)
+	hand._update_visual_tilt(1.0 / 60.0)
+	if not is_equal_approx(hand.cone_pivot.position.x, 0.4) or not is_equal_approx(hand.cone_pivot.position.z, -0.3):
+		push_error("BALANCE REGRESSION: disposal animation position was overwritten")
+	hand.reset_cone()
+	print("BALANCE VISUAL REGRESSION: checks completed")
 	main.queue_free()
 	await get_tree().process_frame
 	await AudioManager.finish_and_quit()
