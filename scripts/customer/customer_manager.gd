@@ -300,7 +300,7 @@ func generate_order_for_archetype(arch: CustomerArchetype) -> OrderData:
 				preferred.append(flavor)
 		if not preferred.is_empty():
 			for index in range(order.flavors.size()):
-				if randf() < 0.42:
+				if randf() < 0.42 and not is_focus:
 					order.flavors[index] = preferred.pick_random()
 
 	# Topping Üretimi (0, 1 veya 2 adet)
@@ -325,11 +325,9 @@ func generate_order_for_archetype(arch: CustomerArchetype) -> OrderData:
 		for topping in all_toppings:
 			if topping.id in arch.preferred_toppings:
 				preferred_toppings.append(topping)
-		if not preferred_toppings.is_empty() and randf() < 0.65:
+		if not preferred_toppings.is_empty() and not order.toppings.is_empty() and randf() < 0.65:
 			var selected: ToppingData = preferred_toppings.pick_random()
-			if order.toppings.is_empty():
-				order.toppings.append(selected)
-			elif not order.toppings.has(selected):
+			if not order.toppings.has(selected):
 				order.toppings[0] = selected
 
 	# Sipariş Tipi Belirleme
