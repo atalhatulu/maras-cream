@@ -31,6 +31,11 @@ var cone_bonus: float = 0.0
 var pause_used: float = 0.0
 var show_count: int = 0
 var catch_rewarded: bool = false
+var combo_chain: int = 0
+var last_move: String = ""
+var combo_multiplier: float = 1.0
+const MAX_COMBO: int = 4
+const COMBO_STEP: float = 0.12
 
 func _init(archetype: CustomerArchetype = null, event_id: String = "NORMAL") -> void:
 	customer_type = archetype.type if archetype else CustomerArchetype.ArchetypeType.TOURIST
@@ -42,6 +47,9 @@ func _init(archetype: CustomerArchetype = null, event_id: String = "NORMAL") -> 
 func lose_cone() -> void:
 	cone_bonus = 0.0
 	catch_rewarded = false
+	combo_chain = 0
+	last_move = ""
+	combo_multiplier = 1.0
 
 func complete(kind: String, correct_order: bool = false, score: float = 5.0) -> Dictionary:
 	if kind not in ["tease", "flip", "catch", "bell", "spin"]:
@@ -53,12 +61,21 @@ func complete(kind: String, correct_order: bool = false, score: float = 5.0) -> 
 		factor = 1.0 if previous == 0 else 0.0
 	var amount := 0.0
 	var penalty := 0.0
+	if kind in ["tease", "flip", "spin"]:
+		combo_chain = mini(combo_chain + 1, MAX_COMBO) if kind != last_move else 0
+		last_move = kind
+	elif kind == "catch":
+		combo_chain = 0
+		last_move = ""
+	combo_multiplier = 1.0 + float(maxi(0, combo_chain - 1)) * COMBO_STEP
 	if kind != "bell":
 		amount = float(profile[kind]) * factor
 		if previous == 0 and show_count > 0:
 			amount += float(profile.variety)
 		if customer_type == CustomerArchetype.ArchetypeType.GOURMET and kind == "flip" and correct_order and score >= 4.0:
 			amount += 2.0 * factor
+		if kind in ["tease", "flip", "spin"] and previous == 0 and customer_type != CustomerArchetype.ArchetypeType.BUSINESS:
+			amount *= combo_multiplier
 		show_count += 1
 		if customer_type == CustomerArchetype.ArchetypeType.BUSINESS and show_count > 1:
 			amount = 0.0
@@ -91,4 +108,5 @@ func complete(kind: String, correct_order: bool = false, score: float = 5.0) -> 
 		reaction = "İşte bu! Farklı numaralar, harika şov!"
 	return {"kind": kind, "amount": amount, "total": cone_bonus,
 		"pause": pause, "penalty": penalty, "reaction": reaction,
-		"repeated": previous > 0, "cap": float(profile.cap)}
+		"repeated": previous > 0, "cap": float(profile.cap),
+		"combo": combo_chain, "multiplier": combo_multiplier}
