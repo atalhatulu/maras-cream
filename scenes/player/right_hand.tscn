@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/right_hand.gd" id="1_right"]
 
@@ -35,6 +35,16 @@ size = Vector3(0.050, 0.032, 0.042)
 [sub_resource type="BoxMesh" id="BoxMesh_thumb_grip"]
 material = SubResource("StandardMaterial3D_glove_white")
 size = Vector3(0.018, 0.020, 0.036)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_finger_detail"]
+material = SubResource("StandardMaterial3D_glove_white")
+radius = 0.009
+height = 0.056
+
+[sub_resource type="SphereMesh" id="SphereMesh_knuckle"]
+material = SubResource("StandardMaterial3D_glove_white")
+radius = 0.014
+height = 0.022
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metal"]
 albedo_color = Color(0.72, 0.75, 0.78, 1)
@@ -84,6 +94,33 @@ mesh = SubResource("BoxMesh_fingers_grip")
 [node name="ThumbGrip" type="MeshInstance3D" parent="ArmRig/WristRig/PalmMesh"]
 transform = Transform3D(0.866025, 0, -0.5, -0.12941, 0.965926, -0.224144, 0.482963, 0.258819, 0.836516, -0.032, 0.015, -0.015)
 mesh = SubResource("BoxMesh_thumb_grip")
+
+[node name="FingerDetail1" type="MeshInstance3D" parent="ArmRig/WristRig/PalmMesh"]
+position = Vector3(-0.017, -0.012, -0.063)
+rotation_degrees = Vector3(35, 0, 0)
+mesh = SubResource("CapsuleMesh_finger_detail")
+
+[node name="Knuckle1" type="MeshInstance3D" parent="ArmRig/WristRig/PalmMesh"]
+position = Vector3(-0.017, 0.002, -0.031)
+mesh = SubResource("SphereMesh_knuckle")
+
+[node name="FingerDetail2" type="MeshInstance3D" parent="ArmRig/WristRig/PalmMesh"]
+position = Vector3(0.000, -0.012, -0.063)
+rotation_degrees = Vector3(35, 0, 0)
+mesh = SubResource("CapsuleMesh_finger_detail")
+
+[node name="Knuckle2" type="MeshInstance3D" parent="ArmRig/WristRig/PalmMesh"]
+position = Vector3(0.000, 0.002, -0.031)
+mesh = SubResource("SphereMesh_knuckle")
+
+[node name="FingerDetail3" type="MeshInstance3D" parent="ArmRig/WristRig/PalmMesh"]
+position = Vector3(0.017, -0.012, -0.063)
+rotation_degrees = Vector3(35, 0, 0)
+mesh = SubResource("CapsuleMesh_finger_detail")
+
+[node name="Knuckle3" type="MeshInstance3D" parent="ArmRig/WristRig/PalmMesh"]
+position = Vector3(0.017, 0.002, -0.031)
+mesh = SubResource("SphereMesh_knuckle")
 
 [node name="ScoopPivot" type="Node3D" parent="."]
 transform = Transform3D(0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, 0.965926, 0, 0.01, -0.02)
