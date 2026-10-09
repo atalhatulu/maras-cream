@@ -41,6 +41,8 @@ var _prev_world_pos: Vector3
 var _motion_tween: Tween
 var _grip_strength: float = 0.0
 var _scoop_pop: float = 0.0
+var _elastic_strand: MeshInstance3D
+var _elastic_anchor: Vector3 = Vector3.ZERO
 
 func _ready() -> void:
 	_base_local_pos = position
@@ -60,6 +62,7 @@ func _process(delta: float) -> void:
 		_handle_dive_motion(safe_delta)
 	_handle_jiggle_physics(safe_delta)
 	_update_grip_and_scoop_feedback(safe_delta)
+	_update_elastic_strand()
 
 func _update_grip_and_scoop_feedback(delta: float) -> void:
 	# Grip tightens as the player scrapes, then relaxes with a filled scoop.
@@ -75,6 +78,49 @@ func _update_grip_and_scoop_feedback(delta: float) -> void:
 		ice_cream_scoop_mesh.scale = Vector3(1.0 - _scoop_pop * 0.10, stretch, 1.0 - _scoop_pop * 0.10)
 	elif ice_cream_scoop_mesh:
 		ice_cream_scoop_mesh.scale = Vector3.ONE
+
+func _update_elastic_strand() -> void:
+	if not is_instance_valid(_elastic_strand):
+		return
+	if not is_diving or current_target_flavor == null:
+		_elastic_strand.visible = false
+		return
+	var tip: Vector3 = get_scoop_tip_global_position()
+	var displacement: Vector3 = tip - _elastic_anchor
+	var length: float = displacement.length()
+	_elastic_strand.visible = length > 0.015 and length < 1.0
+	if not _elastic_strand.visible:
+		return
+	_elastic_strand.global_position = (_elastic_anchor + tip) * 0.5
+	_elastic_strand.look_at(tip, Vector3.UP)
+	_elastic_strand.rotate_object_local(Vector3.RIGHT, PI * 0.5)
+	var tension: float = clampf(length / 0.45, 0.0, 1.0)
+	_elastic_strand.scale = Vector3(1.0 - tension * 0.65, length, 1.0 - tension * 0.65)
+
+func _start_elastic_strand(anchor: Vector3, flavor: FlavorData) -> void:
+	_clear_elastic_strand()
+	_elastic_anchor = anchor
+	_elastic_strand = MeshInstance3D.new()
+	_elastic_strand.name = "ElasticMarasStrand"
+	var strand_mesh: CylinderMesh = CylinderMesh.new()
+	strand_mesh.top_radius = 0.012
+	strand_mesh.bottom_radius = 0.021
+	strand_mesh.height = 1.0
+	var strand_material: StandardMaterial3D = StandardMaterial3D.new()
+	strand_material.albedo_color = flavor.color
+	strand_material.roughness = 0.72
+	strand_mesh.material = strand_material
+	_elastic_strand.mesh = strand_mesh
+	get_tree().root.add_child(_elastic_strand)
+	_elastic_strand.visible = false
+
+func _clear_elastic_strand() -> void:
+	if is_instance_valid(_elastic_strand):
+		_elastic_strand.queue_free()
+	_elastic_strand = null
+
+func _exit_tree() -> void:
+	_clear_elastic_strand()
 
 func _handle_dive_motion(delta: float) -> void:
 	var speed = return_speed_full if has_ice_cream() else return_speed_empty
@@ -138,6 +184,7 @@ func _on_scoop_dive_started(tub_node: Node3D, flavor: FlavorData, hit_point: Vec
 	is_animating = true
 	current_target_tub = tub_node
 	current_target_flavor = flavor
+	_start_elastic_strand(hit_point if hit_point != Vector3.ZERO else tub_node.global_position, flavor)
 	_accumulated_drag = 0.0
 	_accumulated_depth = 0.0
 	_scoop_progress = 0.0
@@ -204,6 +251,7 @@ func process_dive_mouse_input(relative: Vector2) -> void:
 func _complete_scoop_and_retract() -> void:
 	_is_scoop_ready_in_dive = true
 	_scoop_pop = 1.0
+	_clear_elastic_strand()
 	current_scooped_flavor = current_target_flavor
 	_update_visual()
 	
@@ -272,6 +320,7 @@ func end_dive() -> void:
 	is_animating = false
 		
 	is_diving = false
+	_clear_elastic_strand()
 	if not _is_scoop_ready_in_dive and current_scooped_flavor == null:
 		EventBus.scoop_dive_cancelled.emit()
 		EventBus.notification_requested.emit("Kepçeleme yetersiz kaldı.", 1.0)
