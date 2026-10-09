@@ -31,6 +31,7 @@ var _latest_progress_info: Dictionary = {}
 var _is_clutch_ui_active: bool = false
 var _clutch_ui_generation: int = 0
 var _hand_busy: bool = false
+var _crosshair_interactive: bool = false
 var _tutorial_panel: PanelContainer
 var _tutorial_title: Label
 var _tutorial_text: Label
@@ -42,6 +43,8 @@ func _ready() -> void:
 	_player = get_parent().get_node_or_null("PlayerRig")
 	_manager = get_parent().get_node_or_null("CustomerManager")
 	_build_tutorial_panel()
+	# The old 5px dot was hard to see; draw a high-contrast reticle instead.
+	crosshair.visible = false
 	if scoop_gesture_container:
 		scoop_gesture_container.visible = false
 	if order_card_container:
@@ -179,18 +182,25 @@ func _spawn_floating_cash(amount: float) -> void:
 			float_lbl.queue_free()
 	)
 
+func _draw() -> void:
+	var center := size * 0.5
+	var accent := Color(1.0, 0.83, 0.30, 1.0) if _crosshair_interactive else Color(0.96, 0.98, 1.0, 0.95)
+	var shadow := Color(0.02, 0.03, 0.05, 0.9)
+	var gap := 6.0
+	var extent := 14.0
+	for direction in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+		var start := center + direction * gap
+		var finish := center + direction * extent
+		draw_line(start, finish, shadow, 5.0, true)
+		draw_line(start, finish, accent, 2.5, true)
+	draw_circle(center, 3.0, shadow)
+	draw_circle(center, 1.6, accent)
+
 func _on_interaction_target_changed(hint_text: String) -> void:
 	if interaction_tooltip_label:
 		interaction_tooltip_label.text = hint_text
-	if crosshair:
-		if hint_text != "":
-			crosshair.color = Color(1.0, 0.85, 0.3, 0.95)
-			crosshair.size = Vector2(7, 7)
-			crosshair.position = Vector2(-3.5, -3.5)
-		else:
-			crosshair.color = Color(1, 1, 1, 0.6)
-			crosshair.size = Vector2(5, 5)
-			crosshair.position = Vector2(-2.5, -2.5)
+	_crosshair_interactive = hint_text != ""
+	queue_redraw()
 
 func _on_reputation_changed(new_rep: float, _diff: float) -> void:
 	if reputation_label:
