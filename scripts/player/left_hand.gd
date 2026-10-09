@@ -25,6 +25,9 @@ const SCOOP_STACK_SPACING: float = 0.046
 @export var scoop_spring_damping: float = 9.0
 
 @onready var cone_pivot: Node3D = $ConePivot
+@onready var grip_fingers: Node3D = $ArmRig/WristRig/PalmMesh/FingersMesh
+@onready var grip_thumb: Node3D = $ArmRig/WristRig/PalmMesh/ThumbMesh
+@onready var wrist_rig: Node3D = $ArmRig/WristRig
 @onready var cone_mesh: Node3D = $ConePivot/ConePlaceholder
 @onready var scoop_container: Node3D = $ConePivot/ScoopContainer
 @onready var stack_marker: Marker3D = $ConePivot/ConeStackMarker
@@ -42,6 +45,9 @@ var _physics_time: float = 0.0
 var _is_transferring: bool = false
 var is_reaching_cone: bool = false
 var _base_local_pos: Vector3
+var _grip_amount: float = 0.0
+var _wrist_response: float = 0.0
+var _base_wrist_rotation: Vector3
 
 # Her top için bağımsız yay ofsetleri ve zincir açıları
 var _scoop_offsets: Array[Vector3] = []
@@ -68,6 +74,7 @@ const CLUTCH_WINDOW_DURATION: float = 0.52
 
 func _ready() -> void:
 	_base_local_pos = position
+	_base_wrist_rotation = wrist_rig.rotation
 	cone_pivot.visible = false
 	EventBus.place_on_cone_attempted.connect(_on_place_on_cone_attempted)
 	EventBus.cone_dispenser_interacted.connect(_on_cone_dispenser_interacted)
@@ -96,11 +103,30 @@ func _process(delta: float) -> void:
 	if has_cone():
 		_simulate_scoops_secondary_motion(safe_delta)
 		_update_visual_tilt(safe_delta)
+	_update_hand_grip(safe_delta)
 	else:
 		current_angle_deg = 0.0
 		angular_velocity = 0.0
 		_current_input_torque = 0.0
 		EventBus.cone_balance_updated.emit(0.0, 0.0)
+
+func _update_hand_grip(delta: float) -> void:
+	# The glove closes around the cone and tightens under a taller stack.
+	var target_grip: float = 0.0
+	if has_cone():
+		target_grip = clampf(0.35 + float(stacked_flavors.size()) * 0.075, 0.0, 1.0)
+	_grip_amount = lerpf(_grip_amount, target_grip, 1.0 - exp(-11.0 * delta))
+	if grip_fingers:
+		grip_fingers.rotation.x = deg_to_rad(_grip_amount * 18.0)
+	if grip_thumb:
+		grip_thumb.rotation.y = deg_to_rad(_grip_amount * 14.0)
+	# A small wrist counter-rotation conveys weight without affecting balance physics.
+	var target_response: float = 0.0
+	if has_cone() and not is_flipping and not is_spinning:
+		target_response = clampf(-current_angle_deg * 0.16 - angular_velocity * 0.045, -10.0, 10.0)
+	_wrist_response = lerpf(_wrist_response, target_response, 1.0 - exp(-9.0 * delta))
+	if wrist_rig:
+		wrist_rig.rotation = _base_wrist_rotation + Vector3(0.0, 0.0, deg_to_rad(_wrist_response))
 
 func _physics_process(delta: float) -> void:
 	if has_cone():
@@ -223,6 +249,9 @@ func _update_visual_tilt(delta: float) -> void:
 	if not _is_disposing:
 		cone_pivot.position.x = sin(_physics_time * 43.0) * shake_amplitude
 		cone_pivot.position.z = -0.05 + cos(_physics_time * 37.0) * shake_amplitude
+		# Subtle visual load compression; does not change the physical tilt threshold.
+		var load_scale: float = 1.0 - minf(float(scoop_count) * 0.006, 0.06)
+		cone_pivot.scale.y = lerpf(cone_pivot.scale.y, load_scale, 1.0 - exp(-7.0 * delta))
 	
 	var children = scoop_container.get_children()
 	var base_y = stack_marker.position.y if stack_marker else 0.14
