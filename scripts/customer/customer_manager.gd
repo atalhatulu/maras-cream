@@ -64,6 +64,7 @@ func _init_archetypes() -> void:
 	bus.reputation_bonus = 1.2
 	bus.order_complexity = 0.8
 	bus.focus_flavor_chance = 0.35
+	bus.preferred_flavors.assign(["sade", "cikolata"])
 	_archetypes.append(bus)
 	
 	# 2. Meraklı Turist (4 - 7 Top, Yüksek Sabır, Sos Meraklısı)
@@ -86,6 +87,7 @@ func _init_archetypes() -> void:
 	tour.reputation_bonus = 1.8
 	tour.order_complexity = 1.2
 	tour.focus_flavor_chance = 0.20
+	tour.preferred_flavors.assign(["sade", "antep_fistigi"])
 	_archetypes.append(tour)
 	
 	# 3. Tatlı Düşkünü Çocuk (5 - 9 Top, Karışık ve Bol Soslu)
@@ -109,6 +111,8 @@ func _init_archetypes() -> void:
 	child.reputation_bonus = 1.5
 	child.order_complexity = 1.4
 	child.focus_flavor_chance = 0.15
+	child.preferred_flavors.assign(["cikolata", "cilek"])
+	child.preferred_toppings.assign(["cikolata_sos"])
 	_archetypes.append(child)
 	
 	# 4. Titiz Gurme (4 - 7 Top, Denge ve Lezzette Çok Hassas)
@@ -131,6 +135,7 @@ func _init_archetypes() -> void:
 	gour.reputation_bonus = 3.0
 	gour.order_complexity = 0.9
 	gour.focus_flavor_chance = 0.40
+	gour.preferred_flavors.assign(["sade", "antep_fistigi"])
 	_archetypes.append(gour)
 	
 	# 5. Sosyal Medya Fenomeni / Kule Avcısı (8 - 14 TOP REKOR KULE!)
@@ -153,6 +158,7 @@ func _init_archetypes() -> void:
 	inf.reputation_bonus = 5.0
 	inf.order_complexity = 1.5
 	inf.focus_flavor_chance = 0.20
+	inf.preferred_toppings.assign(["cikolata_sos"])
 	_archetypes.append(inf)
 
 func _on_day_started(_day_num: int, _target: int) -> void:
