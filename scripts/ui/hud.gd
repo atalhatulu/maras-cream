@@ -30,6 +30,9 @@ var _current_active_order: OrderData = null
 var _latest_progress_info: Dictionary = {}
 var _is_clutch_ui_active: bool = false
 var _clutch_ui_generation: int = 0
+var _clutch_remaining: float = 0.0
+var _clutch_duration: float = 0.0
+var _clutch_direction: float = 0.0
 var _hand_busy: bool = false
 var _crosshair_interactive: bool = false
 var _tutorial_panel: PanelContainer
@@ -206,9 +209,21 @@ func _on_reputation_changed(new_rep: float, _diff: float) -> void:
 	if reputation_label:
 		reputation_label.text = "İtibar: %%%d" % int(new_rep)
 
+func _process(delta: float) -> void:
+	if _is_clutch_ui_active and _clutch_remaining > 0.0:
+		_clutch_remaining = maxf(0.0, _clutch_remaining - delta)
+		if balance_bar:
+			balance_bar.modulate = Color(1.0, 0.22, 0.18, 1.0).lerp(Color(1.0, 0.85, 0.2, 1.0), _clutch_remaining / maxf(_clutch_duration, 0.001))
+		if balance_label:
+			var key_name: String = "A" if _clutch_direction > 0.0 else "D"
+			balance_label.text = "KURTAR! [%s]  %.1fs" % [key_name, _clutch_remaining]
+
 func _on_balance_updated(balance_ratio: float, current_angle_deg: float) -> void:
 	if balance_bar:
 		balance_bar.value = (balance_ratio + 1.0) * 50.0
+		if not _is_clutch_ui_active:
+			var severity: float = absf(balance_ratio)
+			balance_bar.modulate = Color(1.0, 0.35, 0.35) if severity >= 0.85 else (Color(1.0, 0.75, 0.35) if severity >= 0.72 else Color.WHITE)
 		
 	if _is_clutch_ui_active:
 		return
@@ -224,8 +239,11 @@ func _on_balance_updated(balance_ratio: float, current_angle_deg: float) -> void
 			balance_label.text = "Denge [A / D]"
 			balance_label.modulate = Color.WHITE
 
-func _on_clutch_window_started(fall_direction: float, _duration: float) -> void:
+func _on_clutch_window_started(fall_direction: float, duration: float) -> void:
 	_clutch_ui_generation += 1
+	_clutch_remaining = duration
+	_clutch_duration = duration
+	_clutch_direction = fall_direction
 	_is_clutch_ui_active = true
 	if balance_label:
 		if fall_direction > 0.0:
@@ -235,6 +253,7 @@ func _on_clutch_window_started(fall_direction: float, _duration: float) -> void:
 		balance_label.modulate = Color(1.0, 0.15, 0.15, 1.0)
 
 func _on_clutch_catch_succeeded() -> void:
+	_clutch_remaining = 0.0
 	if balance_label:
 		balance_label.text = "✨ KULE HAVADA KURTARILDI!"
 		balance_label.modulate = Color(0.3, 1.0, 0.4, 1.0)
@@ -245,6 +264,7 @@ func _on_clutch_catch_succeeded() -> void:
 	)
 
 func _on_clutch_catch_failed() -> void:
+	_clutch_remaining = 0.0
 	_is_clutch_ui_active = false
 
 func _on_cone_flipped(is_flipped: bool) -> void:
