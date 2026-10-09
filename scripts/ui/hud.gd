@@ -188,9 +188,9 @@ func _draw() -> void:
 	var shadow := Color(0.02, 0.03, 0.05, 0.9)
 	var gap := 6.0
 	var extent := 14.0
-	for direction in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
-		var start := center + direction * gap
-		var finish := center + direction * extent
+	for direction: Vector2 in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+		var start: Vector2 = center + direction * gap
+		var finish: Vector2 = center + direction * extent
 		draw_line(start, finish, shadow, 5.0, true)
 		draw_line(start, finish, accent, 2.5, true)
 	draw_circle(center, 3.0, shadow)
