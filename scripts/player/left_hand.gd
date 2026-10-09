@@ -169,7 +169,6 @@ func _simulate_balance_physics(delta: float) -> void:
 	# Gerilim Tansiyonu: %72 ve üstü kritik açıda külah titremesi ve gerilim uyarısı
 	var tilt_severity = abs(balance_ratio)
 	if tilt_severity >= 0.72 and cone_pivot:
-		var jitter = (tilt_severity - 0.72) * 0.025
 		# Visual shake is applied without accumulating position offsets.
 		EventBus.cone_critical_tilt.emit(tilt_severity)
 	
@@ -220,8 +219,10 @@ func _update_visual_tilt(delta: float) -> void:
 	elif not is_flipping and stacked_flavors.size() > 0:
 		var severity := absf(current_angle_deg / maxf(get_safe_angle(), 0.001))
 		shake_amplitude = maxf(0.0, severity - 0.72) * 0.025
-	cone_pivot.position.x = sin(_physics_time * 43.0) * shake_amplitude
-	cone_pivot.position.z = -0.05 + cos(_physics_time * 37.0) * shake_amplitude
+	# Drop/discard tweens own the pivot position until the cone is reset.
+	if not _is_disposing:
+		cone_pivot.position.x = sin(_physics_time * 43.0) * shake_amplitude
+		cone_pivot.position.z = -0.05 + cos(_physics_time * 37.0) * shake_amplitude
 	
 	var children = scoop_container.get_children()
 	var base_y = stack_marker.position.y if stack_marker else 0.14
