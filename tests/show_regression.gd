@@ -121,6 +121,20 @@ func _test_show_policy() -> void:
 		close(session.awarded, awarded, "Losing cone does not reset customer cap")
 		close(session.pause_used, used, "Losing cone does not reset patience budget")
 		close(session.complete("catch").amount, 0.0, "New cone cannot farm rescue rewards")
+	# Every customer recipe preference must remain within unlocked ingredients.
+	var recipe_manager := CustomerManager.new()
+	recipe_manager._init_archetypes()
+	for customer_profile in recipe_manager._archetypes:
+		for repeat_index in range(8):
+			var generated: OrderData = recipe_manager.generate_order_for_archetype(customer_profile)
+			check(generated.flavors.size() > 0, "Preferred recipe has scoops")
+			check(generated.toppings.size() <= 2, "Preferred recipe respects topping limit")
+			for flavor in generated.flavors:
+				check(GameManager.get_unlocked_flavors().has(flavor), "Preference never inserts locked flavor")
+			for topping in generated.toppings:
+				check(GameManager.get_unlocked_toppings().has(topping), "Preference never inserts locked topping")
+	recipe_manager.free()
+
 	var tourist := ShowSession.new(archetype(CustomerArchetype.ArchetypeType.TOURIST))
 	close(tourist.complete("tease").amount, 3.5, "Tourist first tease earns $3.50")
 	close(tourist.complete("flip").amount, 7.28, "Tourist varied combo adds multiplier")
