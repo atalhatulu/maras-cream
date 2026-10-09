@@ -129,6 +129,18 @@ func _test_show_policy() -> void:
 			var generated: OrderData = recipe_manager.generate_order_for_archetype(customer_profile)
 			check(generated.flavors.size() > 0, "Preferred recipe has scoops")
 			check(generated.toppings.size() <= 2, "Preferred recipe respects topping limit")
+			if generated.order_type == OrderData.OrderType.FLAVOR_FOCUS:
+				var counts_by_flavor: Dictionary = {}
+				for flavor in generated.flavors:
+					counts_by_flavor[flavor.id] = int(counts_by_flavor.get(flavor.id, 0)) + 1
+				var highest_count: int = 0
+				for flavor_count in counts_by_flavor.values():
+					highest_count = maxi(highest_count, int(flavor_count))
+				check(highest_count >= 2, "Flavor-focus orders retain repeated primary flavor")
+			var unique_toppings: Dictionary = {}
+			for topping in generated.toppings:
+				unique_toppings[topping.id] = true
+			check(unique_toppings.size() == generated.toppings.size(), "Preferred toppings remain unique")
 			for flavor in generated.flavors:
 				check(GameManager.get_unlocked_flavors().has(flavor), "Preference never inserts locked flavor")
 			for topping in generated.toppings:
