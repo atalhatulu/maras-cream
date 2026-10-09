@@ -47,6 +47,7 @@ var is_reaching_cone: bool = false
 var _base_local_pos: Vector3
 var _grip_amount: float = 0.0
 var _wrist_response: float = 0.0
+var _catch_recoil: float = 0.0
 var _base_wrist_rotation: Vector3
 
 # Her top için bağımsız yay ofsetleri ve zincir açıları
@@ -104,6 +105,7 @@ func _process(delta: float) -> void:
 		_simulate_scoops_secondary_motion(safe_delta)
 		_update_visual_tilt(safe_delta)
 	_update_hand_grip(safe_delta)
+	_catch_recoil = move_toward(_catch_recoil, 0.0, safe_delta * 65.0)
 	else:
 		current_angle_deg = 0.0
 		angular_velocity = 0.0
@@ -232,7 +234,7 @@ func _update_visual_tilt(delta: float) -> void:
 		return
 		
 	if not is_flipping:
-		cone_pivot.rotation.z = -deg_to_rad(current_angle_deg)
+		cone_pivot.rotation.z = -deg_to_rad(current_angle_deg + _catch_recoil)
 	
 	# Absürt Kule Yüksekliğini Ekrana Sığdırma (Dynamic Lowering)
 	var scoop_count = stacked_flavors.size()
@@ -702,10 +704,7 @@ func _clutch_recover() -> void:
 	_clutch_timer = 0.0
 	angular_velocity = -_clutch_fall_dir * 30.0
 	current_angle_deg = _clutch_fall_dir * minf(absf(current_angle_deg), get_safe_angle() * 0.38)
-	# A brief recoil makes a successful last-second catch readable.
-	var catch_tween: Tween = create_tween()
-	catch_tween.tween_property(cone_pivot, "rotation:z", -deg_to_rad(current_angle_deg + _clutch_fall_dir * 9.0), 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	catch_tween.tween_property(cone_pivot, "rotation:z", -deg_to_rad(current_angle_deg), 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_catch_recoil = _clutch_fall_dir * 9.0
 	_emit_busy()
 	EventBus.clutch_catch_succeeded.emit()
 	EventBus.show_completed.emit("catch")
