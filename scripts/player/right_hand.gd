@@ -13,6 +13,8 @@ extends Node3D
 @export var jiggle_damping: float = 15.0
 
 @onready var scoop_pivot: Node3D = $ScoopPivot
+@onready var grip_fingers: Node3D = $ArmRig/WristRig/PalmMesh/FingersGrip
+@onready var grip_thumb: Node3D = $ArmRig/WristRig/PalmMesh/ThumbGrip
 @onready var scoop_mesh: Node3D = $ScoopPivot/ScoopPlaceholder
 @onready var ice_cream_scoop_mesh: MeshInstance3D = $ScoopPivot/IceCreamScoopVisual
 
@@ -37,6 +39,8 @@ var _jiggle_offset: Vector3 = Vector3.ZERO
 var _jiggle_velocity: Vector3 = Vector3.ZERO
 var _prev_world_pos: Vector3
 var _motion_tween: Tween
+var _grip_strength: float = 0.0
+var _scoop_pop: float = 0.0
 
 func _ready() -> void:
 	_base_local_pos = position
@@ -55,6 +59,22 @@ func _process(delta: float) -> void:
 	if not is_animating:
 		_handle_dive_motion(safe_delta)
 	_handle_jiggle_physics(safe_delta)
+	_update_grip_and_scoop_feedback(safe_delta)
+
+func _update_grip_and_scoop_feedback(delta: float) -> void:
+	# Grip tightens as the player scrapes, then relaxes with a filled scoop.
+	var target_grip: float = _scoop_progress if is_diving else (0.4 if has_ice_cream() else 0.0)
+	_grip_strength = lerpf(_grip_strength, target_grip, 1.0 - exp(-12.0 * delta))
+	if grip_fingers:
+		grip_fingers.rotation.x = deg_to_rad(_grip_strength * 17.0)
+	if grip_thumb:
+		grip_thumb.rotation.y = deg_to_rad(-_grip_strength * 12.0)
+	_scoop_pop = move_toward(_scoop_pop, 0.0, delta * 3.5)
+	if ice_cream_scoop_mesh and has_ice_cream():
+		var stretch: float = 1.0 + _scoop_pop * 0.24
+		ice_cream_scoop_mesh.scale = Vector3(1.0 - _scoop_pop * 0.10, stretch, 1.0 - _scoop_pop * 0.10)
+	elif ice_cream_scoop_mesh:
+		ice_cream_scoop_mesh.scale = Vector3.ONE
 
 func _handle_dive_motion(delta: float) -> void:
 	var speed = return_speed_full if has_ice_cream() else return_speed_empty
@@ -62,8 +82,8 @@ func _handle_dive_motion(delta: float) -> void:
 	if is_diving:
 		speed = dive_spring_speed
 		# Fare aşağı çekildikçe bilek dondurmayı oymak için aşağı ve ters döner
-		var scrape_lift = _scoop_progress * 0.045
-		var scrape_pull = -_scoop_progress * 0.085
+		var scrape_lift = ease(_scoop_progress, 1.5) * 0.045
+		var scrape_pull = -ease(_scoop_progress, 1.5) * 0.085
 		var scrape_pitch = lerpf(deg_to_rad(42.0), deg_to_rad(105.0), _scoop_progress)
 		var scrape_roll = lerpf(-deg_to_rad(8.0), deg_to_rad(65.0), _scoop_progress)
 		var scrape_yaw = lerpf(-deg_to_rad(10.0), deg_to_rad(22.0), _scoop_progress)
@@ -173,7 +193,9 @@ func process_dive_mouse_input(relative: Vector2) -> void:
 	var depth_ratio = clampf(_accumulated_depth / required_depth, 0.0, 1.0)
 	var drag_ratio = clampf(_accumulated_drag / required_drag_distance, 0.0, 1.0)
 	
-	_scoop_progress = (depth_ratio * 0.7) + (drag_ratio * 0.3)
+	# The final third feels heavier without changing the required mouse distance.
+	var raw_progress: float = (depth_ratio * 0.7) + (drag_ratio * 0.3)
+	_scoop_progress = ease(raw_progress, 1.25)
 	EventBus.scoop_dive_progress.emit(_scoop_progress)
 	
 	if _scoop_progress >= 1.0 and not is_animating:
@@ -181,6 +203,7 @@ func process_dive_mouse_input(relative: Vector2) -> void:
 
 func _complete_scoop_and_retract() -> void:
 	_is_scoop_ready_in_dive = true
+	_scoop_pop = 1.0
 	current_scooped_flavor = current_target_flavor
 	_update_visual()
 	
@@ -265,6 +288,7 @@ func _on_ice_cream_placed_on_cone(_flavor: FlavorData, _stack_index: int) -> voi
 func consume_scoop() -> FlavorData:
 	var f = current_scooped_flavor
 	current_scooped_flavor = null
+	_scoop_pop = 0.0
 	_update_visual()
 	EventBus.scoop_state_changed.emit(false, null)
 	return f
