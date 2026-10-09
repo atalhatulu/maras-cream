@@ -178,8 +178,11 @@ func _simulate_balance_physics(delta: float) -> void:
 	var target_torque = input_axis * active_power
 	_current_input_torque = move_toward(_current_input_torque, target_torque, input_accel_rate * delta)
 	
-	var moment_of_inertia = base_inertia + (float(scoop_count) * 0.18)
-	var com_height_factor = 1.0 + (float(scoop_count) * 0.14)
+	# Tall towers accumulate more inertia and have a higher center of mass.
+	# Keep the progression continuous at eight scoops instead of a sudden difficulty jump.
+	var tower_excess: float = maxf(0.0, float(scoop_count - 7))
+	var moment_of_inertia: float = base_inertia + float(scoop_count) * 0.18 + tower_excess * tower_excess * 0.035
+	var com_height_factor: float = 1.0 + float(scoop_count) * 0.14 + tower_excess * 0.045
 	
 	var gravity_torque = sin(deg_to_rad(current_angle_deg)) * (10.0 + float(scoop_count) * 3.8) * com_height_factor
 	var gentle_sway = sin(_physics_time * 2.2) * (0.35 + float(scoop_count) * 0.22)
@@ -219,7 +222,8 @@ func _simulate_scoops_secondary_motion(delta: float) -> void:
 	for i in range(count):
 		# Kule uzadıkça üstteki toplar komik bir dalga halinde gecikmeli kıvrılır
 		var target_angle = prev_angle * 1.12 + sin(_physics_time * 3.0 + float(i) * 0.8) * (1.2 + float(i) * 0.4)
-		_scoop_angles[i] = lerpf(_scoop_angles[i], target_angle, (18.0 - float(i) * 0.8) * delta)
+		var response_rate: float = maxf(3.0, 18.0 - float(i) * 0.8)
+		_scoop_angles[i] = lerpf(_scoop_angles[i], target_angle, 1.0 - exp(-response_rate * delta))
 		prev_angle = _scoop_angles[i]
 		
 		var spring_force = -_scoop_offsets[i] * scoop_spring_stiffness
