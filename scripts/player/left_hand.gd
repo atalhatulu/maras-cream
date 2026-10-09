@@ -161,7 +161,7 @@ func _simulate_balance_physics(delta: float) -> void:
 	var angular_accel = total_torque / moment_of_inertia
 	
 	angular_velocity += angular_accel * delta
-	angular_velocity -= angular_velocity * damping_factor * delta
+	angular_velocity *= exp(-damping_factor * delta)
 	current_angle_deg += angular_velocity * delta
 	
 	var effective_max_angle := get_safe_angle()
