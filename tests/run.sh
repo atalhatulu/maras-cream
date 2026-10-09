@@ -27,7 +27,11 @@ if [[ "${1:-}" == "--balance" ]]; then
   if [[ "$balance_result" -ne 0 ]] || rg -q '^(SCRIPT ERROR|ERROR):|FAIL:|BALANCE REGRESSION:' "$balance_log"; then
     result=1
   fi
-  if ! rg -q '^BALANCE VISUAL REGRESSION: checks completed
+  if ! rg -q '^BALANCE VISUAL REGRESSION: checks completed || ! rg -q '^BALANCE MEASUREMENTS ' "$balance_log"; then
+    result=1
+  fi
+fi
+exit "$result"
  "$balance_log" || ! rg -q '^BALANCE MEASUREMENTS ' "$balance_log"; then
     result=1
   fi
