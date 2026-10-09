@@ -82,7 +82,7 @@ func _update_grip_and_scoop_feedback(delta: float) -> void:
 func _update_elastic_strand() -> void:
 	if not is_instance_valid(_elastic_strand):
 		return
-	if not is_diving or current_target_flavor == null:
+	if not is_diving or current_target_flavor == null or not is_instance_valid(current_target_tub):
 		_elastic_strand.visible = false
 		return
 	var tip: Vector3 = get_scoop_tip_global_position()
@@ -92,8 +92,8 @@ func _update_elastic_strand() -> void:
 	if not _elastic_strand.visible:
 		return
 	_elastic_strand.global_position = (_elastic_anchor + tip) * 0.5
-	_elastic_strand.look_at(tip, Vector3.UP)
-	_elastic_strand.rotate_object_local(Vector3.RIGHT, PI * 0.5)
+	# CylinderMesh runs along local Y; orient its Y axis along the strand.
+	_elastic_strand.global_basis = Basis(Quaternion(Vector3.UP, displacement.normalized()))
 	var tension: float = clampf(length / 0.45, 0.0, 1.0)
 	_elastic_strand.scale = Vector3(1.0 - tension * 0.65, length, 1.0 - tension * 0.65)
 
@@ -184,14 +184,15 @@ func _on_scoop_dive_started(tub_node: Node3D, flavor: FlavorData, hit_point: Vec
 	is_animating = true
 	current_target_tub = tub_node
 	current_target_flavor = flavor
-	_start_elastic_strand(hit_point if hit_point != Vector3.ZERO else tub_node.global_position, flavor)
+	if is_instance_valid(tub_node):
+		_start_elastic_strand(hit_point if hit_point != Vector3.ZERO else tub_node.global_position, flavor)
 	_accumulated_drag = 0.0
 	_accumulated_depth = 0.0
 	_scoop_progress = 0.0
 	_is_scoop_ready_in_dive = false
 	
 	var target_world = hit_point
-	if target_world == Vector3.ZERO and tub_node:
+	if target_world == Vector3.ZERO and is_instance_valid(tub_node):
 		target_world = tub_node.global_position + Vector3(0, 0.05, 0.05)
 		
 	if get_parent():
