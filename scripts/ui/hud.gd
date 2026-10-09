@@ -305,6 +305,10 @@ func _spawn_floating_show_banner(result: Dictionary) -> void:
 	var full_text := ""
 	if amount > 0.0:
 		full_text = "★ %s +$%.2f" % [text_title, amount]
+		var combo: int = int(result.get("combo", 0))
+		if combo >= 2:
+			full_text += "  KOMBO x%.2f (%d)" % [float(result.get("multiplier", 1.0)), combo]
+			banner_color = Color(1.0, 0.55, 0.16, 1.0)
 		if repeated:
 			full_text += " (Tekrar)"
 	elif penalty > 0.0:
