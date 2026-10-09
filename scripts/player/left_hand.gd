@@ -114,9 +114,7 @@ func _simulate_balance_physics(delta: float) -> void:
 		
 	if is_clutch_active:
 		_clutch_timer -= delta
-		var jitter = randf_range(-0.015, 0.015)
-		if cone_pivot:
-			cone_pivot.position.x += jitter
+		# Clutch shake is rendered as a bounded offset in _update_visual_tilt().
 			
 		var clutch_input = Input.get_axis("balance_left", "balance_right")
 		if clutch_input * _clutch_fall_dir < -0.30:
@@ -172,8 +170,7 @@ func _simulate_balance_physics(delta: float) -> void:
 	var tilt_severity = abs(balance_ratio)
 	if tilt_severity >= 0.72 and cone_pivot:
 		var jitter = (tilt_severity - 0.72) * 0.025
-		cone_pivot.position.x += randf_range(-jitter, jitter)
-		cone_pivot.position.z += randf_range(-jitter, jitter)
+		# Visual shake is applied without accumulating position offsets.
 		EventBus.cone_critical_tilt.emit(tilt_severity)
 	
 	if abs(current_angle_deg) >= effective_max_angle:
@@ -216,6 +213,15 @@ func _update_visual_tilt(delta: float) -> void:
 	var scoop_count = stacked_flavors.size()
 	var target_pivot_y = 0.05 - (float(scoop_count) * 0.016)
 	cone_pivot.position.y = lerpf(cone_pivot.position.y, target_pivot_y, 8.0 * delta)
+	# Keep shake visual-only: always calculate from the original pivot position.
+	var shake_amplitude := 0.0
+	if is_clutch_active:
+		shake_amplitude = 0.015
+	elif not is_flipping and stacked_flavors.size() > 0:
+		var severity := absf(current_angle_deg / maxf(get_safe_angle(), 0.001))
+		shake_amplitude = maxf(0.0, severity - 0.72) * 0.025
+	cone_pivot.position.x = sin(_physics_time * 43.0) * shake_amplitude
+	cone_pivot.position.z = -0.05 + cos(_physics_time * 37.0) * shake_amplitude
 	
 	var children = scoop_container.get_children()
 	var base_y = stack_marker.position.y if stack_marker else 0.14
