@@ -71,16 +71,21 @@ func _handle_dive_motion(delta: float) -> void:
 		var live_dive_pos = _dive_target_pos + Vector3(0, scrape_lift, scrape_pull)
 		var live_dive_rot = Vector3(scrape_pitch, scrape_yaw, scrape_roll)
 		
-		position = position.lerp(live_dive_pos, speed * delta)
-		rotation = rotation.lerp(live_dive_rot, speed * delta)
+		var blend := 1.0 - exp(-speed * delta)
+		position = position.lerp(live_dive_pos, blend)
+		rotation = rotation.lerp(live_dive_rot, blend)
 	else:
-		position = position.lerp(_base_local_pos, speed * delta)
-		rotation = rotation.lerp(Vector3.ZERO, speed * delta)
+		var blend := 1.0 - exp(-speed * delta)
+		position = position.lerp(_base_local_pos, blend)
+		rotation = rotation.lerp(Vector3.ZERO, blend)
 
 func _handle_jiggle_physics(delta: float) -> void:
 	if not ice_cream_scoop_mesh or current_scooped_flavor == null:
 		_jiggle_offset = Vector3.ZERO
 		_jiggle_velocity = Vector3.ZERO
+		_prev_world_pos = global_position
+		if ice_cream_scoop_mesh:
+			ice_cream_scoop_mesh.position = Vector3(0, 0.01, -0.2)
 		return
 		
 	var current_world_pos = global_position
