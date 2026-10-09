@@ -285,6 +285,18 @@ func generate_order_for_archetype(arch: CustomerArchetype) -> OrderData:
 		for i in range(scoop_count):
 			order.flavors.append(all_flavors.pick_random())
 			
+	# Archetype-specific flavor preferences are weighted, not mandatory.
+	# This keeps the multiset order generator compatible with locked flavors.
+	if arch and not arch.preferred_flavors.is_empty():
+		var preferred: Array[FlavorData] = []
+		for flavor in all_flavors:
+			if flavor.id in arch.preferred_flavors:
+				preferred.append(flavor)
+		if not preferred.is_empty():
+			for index in range(order.flavors.size()):
+				if randf() < 0.42:
+					order.flavors[index] = preferred.pick_random()
+
 	# Topping Üretimi (0, 1 veya 2 adet)
 	var top_chance = arch.topping_chance if arch else 0.70
 	var two_top_chance = arch.two_toppings_chance if arch else 0.30
@@ -301,6 +313,19 @@ func generate_order_for_archetype(arch: CustomerArchetype) -> OrderData:
 			order.toppings.append(remaining.pick_random())
 			order.order_type = OrderData.OrderType.TOPPING_FOCUS
 				
+	# Preferred topping can replace one chosen topping, never exceed two.
+	if arch and not arch.preferred_toppings.is_empty() and not all_toppings.is_empty():
+		var preferred_toppings: Array[ToppingData] = []
+		for topping in all_toppings:
+			if topping.id in arch.preferred_toppings:
+				preferred_toppings.append(topping)
+		if not preferred_toppings.is_empty() and randf() < 0.65:
+			var selected: ToppingData = preferred_toppings.pick_random()
+			if order.toppings.is_empty():
+				order.toppings.append(selected)
+			elif not order.toppings.has(selected):
+				order.toppings[0] = selected
+
 	# Sipariş Tipi Belirleme
 	if scoop_count >= 8:
 		order.order_type = OrderData.OrderType.TOWER
