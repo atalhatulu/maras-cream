@@ -24,9 +24,10 @@ albedo_color = Color(0.92, 0.93, 0.96, 1)
 roughness = 0.5
 metallic = 0.05
 
-[sub_resource type="BoxMesh" id="BoxMesh_palm"]
+[sub_resource type="SphereMesh" id="SphereMesh_palm"]
 material = SubResource("StandardMaterial3D_glove_white")
-size = Vector3(0.054, 0.036, 0.052)
+radius = 0.038
+height = 0.055
 
 [sub_resource type="BoxMesh" id="BoxMesh_fingers"]
 material = SubResource("StandardMaterial3D_glove_white")
@@ -78,7 +79,7 @@ mesh = SubResource("BoxMesh_cuff")
 
 [node name="PalmMesh" type="MeshInstance3D" parent="ArmRig/WristRig"]
 transform = Transform3D(1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, 0, 0)
-mesh = SubResource("BoxMesh_palm")
+mesh = SubResource("SphereMesh_palm")
 
 [node name="FingersMesh" type="MeshInstance3D" parent="ArmRig/WristRig/PalmMesh"]
 transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 0.006, -0.042)

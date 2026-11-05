@@ -64,6 +64,7 @@ func _init_archetypes() -> void:
 	bus.reputation_bonus = 1.2
 	bus.order_complexity = 0.8
 	bus.focus_flavor_chance = 0.35
+	bus.preferred_flavors.assign(["sade", "cikolata"])
 	_archetypes.append(bus)
 	
 	# 2. Meraklı Turist (4 - 7 Top, Yüksek Sabır, Sos Meraklısı)
@@ -86,6 +87,7 @@ func _init_archetypes() -> void:
 	tour.reputation_bonus = 1.8
 	tour.order_complexity = 1.2
 	tour.focus_flavor_chance = 0.20
+	tour.preferred_flavors.assign(["sade", "antep_fistigi"])
 	_archetypes.append(tour)
 	
 	# 3. Tatlı Düşkünü Çocuk (5 - 9 Top, Karışık ve Bol Soslu)
@@ -109,6 +111,8 @@ func _init_archetypes() -> void:
 	child.reputation_bonus = 1.5
 	child.order_complexity = 1.4
 	child.focus_flavor_chance = 0.15
+	child.preferred_flavors.assign(["cikolata", "cilek"])
+	child.preferred_toppings.assign(["cikolata_sos"])
 	_archetypes.append(child)
 	
 	# 4. Titiz Gurme (4 - 7 Top, Denge ve Lezzette Çok Hassas)
@@ -131,6 +135,7 @@ func _init_archetypes() -> void:
 	gour.reputation_bonus = 3.0
 	gour.order_complexity = 0.9
 	gour.focus_flavor_chance = 0.40
+	gour.preferred_flavors.assign(["sade", "antep_fistigi"])
 	_archetypes.append(gour)
 	
 	# 5. Sosyal Medya Fenomeni / Kule Avcısı (8 - 14 TOP REKOR KULE!)
@@ -153,6 +158,7 @@ func _init_archetypes() -> void:
 	inf.reputation_bonus = 5.0
 	inf.order_complexity = 1.5
 	inf.focus_flavor_chance = 0.20
+	inf.preferred_toppings.assign(["cikolata_sos"])
 	_archetypes.append(inf)
 
 func _on_day_started(_day_num: int, _target: int) -> void:
@@ -285,6 +291,18 @@ func generate_order_for_archetype(arch: CustomerArchetype) -> OrderData:
 		for i in range(scoop_count):
 			order.flavors.append(all_flavors.pick_random())
 			
+	# Archetype-specific flavor preferences are weighted, not mandatory.
+	# This keeps the multiset order generator compatible with locked flavors.
+	if arch and not arch.preferred_flavors.is_empty():
+		var preferred: Array[FlavorData] = []
+		for flavor in all_flavors:
+			if flavor.id in arch.preferred_flavors:
+				preferred.append(flavor)
+		if not preferred.is_empty():
+			for index in range(order.flavors.size()):
+				if randf() < 0.42 and not is_focus:
+					order.flavors[index] = preferred.pick_random()
+
 	# Topping Üretimi (0, 1 veya 2 adet)
 	var top_chance = arch.topping_chance if arch else 0.70
 	var two_top_chance = arch.two_toppings_chance if arch else 0.30
@@ -301,6 +319,17 @@ func generate_order_for_archetype(arch: CustomerArchetype) -> OrderData:
 			order.toppings.append(remaining.pick_random())
 			order.order_type = OrderData.OrderType.TOPPING_FOCUS
 				
+	# Preferred topping can replace one chosen topping, never exceed two.
+	if arch and not arch.preferred_toppings.is_empty() and not all_toppings.is_empty():
+		var preferred_toppings: Array[ToppingData] = []
+		for topping in all_toppings:
+			if topping.id in arch.preferred_toppings:
+				preferred_toppings.append(topping)
+		if not preferred_toppings.is_empty() and not order.toppings.is_empty() and randf() < 0.65:
+			var selected: ToppingData = preferred_toppings.pick_random()
+			if not order.toppings.has(selected):
+				order.toppings[0] = selected
+
 	# Sipariş Tipi Belirleme
 	if scoop_count >= 8:
 		order.order_type = OrderData.OrderType.TOWER

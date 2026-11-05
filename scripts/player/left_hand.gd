@@ -25,6 +25,9 @@ const SCOOP_STACK_SPACING: float = 0.046
 @export var scoop_spring_damping: float = 9.0
 
 @onready var cone_pivot: Node3D = $ConePivot
+@onready var grip_fingers: Node3D = $ArmRig/WristRig/PalmMesh/FingersMesh
+@onready var grip_thumb: Node3D = $ArmRig/WristRig/PalmMesh/ThumbMesh
+@onready var wrist_rig: Node3D = $ArmRig/WristRig
 @onready var cone_mesh: Node3D = $ConePivot/ConePlaceholder
 @onready var scoop_container: Node3D = $ConePivot/ScoopContainer
 @onready var stack_marker: Marker3D = $ConePivot/ConeStackMarker
@@ -42,6 +45,10 @@ var _physics_time: float = 0.0
 var _is_transferring: bool = false
 var is_reaching_cone: bool = false
 var _base_local_pos: Vector3
+var _grip_amount: float = 0.0
+var _wrist_response: float = 0.0
+var _catch_recoil: float = 0.0
+var _base_wrist_rotation: Vector3
 
 # Her top için bağımsız yay ofsetleri ve zincir açıları
 var _scoop_offsets: Array[Vector3] = []
@@ -57,6 +64,7 @@ var _flying_scoop: MeshInstance3D
 var _show_customer_available: bool = false
 var _is_disposing: bool = false
 var _show_cooldown: float = 0.0
+var _tease_variant: int = 0
 var is_performing_trick: bool = false
 var is_flipping: bool = false
 var is_spinning: bool = false
@@ -68,6 +76,7 @@ const CLUTCH_WINDOW_DURATION: float = 0.52
 
 func _ready() -> void:
 	_base_local_pos = position
+	_base_wrist_rotation = wrist_rig.rotation
 	cone_pivot.visible = false
 	EventBus.place_on_cone_attempted.connect(_on_place_on_cone_attempted)
 	EventBus.cone_dispenser_interacted.connect(_on_cone_dispenser_interacted)
@@ -96,11 +105,31 @@ func _process(delta: float) -> void:
 	if has_cone():
 		_simulate_scoops_secondary_motion(safe_delta)
 		_update_visual_tilt(safe_delta)
+	_update_hand_grip(safe_delta)
+	_catch_recoil = move_toward(_catch_recoil, 0.0, safe_delta * 65.0)
 	else:
 		current_angle_deg = 0.0
 		angular_velocity = 0.0
 		_current_input_torque = 0.0
 		EventBus.cone_balance_updated.emit(0.0, 0.0)
+
+func _update_hand_grip(delta: float) -> void:
+	# The glove closes around the cone and tightens under a taller stack.
+	var target_grip: float = 0.0
+	if has_cone():
+		target_grip = clampf(0.35 + float(stacked_flavors.size()) * 0.075, 0.0, 1.0)
+	_grip_amount = lerpf(_grip_amount, target_grip, 1.0 - exp(-11.0 * delta))
+	if grip_fingers:
+		grip_fingers.rotation.x = deg_to_rad(_grip_amount * 18.0)
+	if grip_thumb:
+		grip_thumb.rotation.y = deg_to_rad(_grip_amount * 14.0)
+	# A small wrist counter-rotation conveys weight without affecting balance physics.
+	var target_response: float = 0.0
+	if has_cone() and not is_flipping and not is_spinning:
+		target_response = clampf(-current_angle_deg * 0.16 - angular_velocity * 0.045, -10.0, 10.0)
+	_wrist_response = lerpf(_wrist_response, target_response, 1.0 - exp(-9.0 * delta))
+	if wrist_rig:
+		wrist_rig.rotation = _base_wrist_rotation + Vector3(0.0, 0.0, deg_to_rad(_wrist_response))
 
 func _physics_process(delta: float) -> void:
 	if has_cone():
@@ -149,8 +178,11 @@ func _simulate_balance_physics(delta: float) -> void:
 	var target_torque = input_axis * active_power
 	_current_input_torque = move_toward(_current_input_torque, target_torque, input_accel_rate * delta)
 	
-	var moment_of_inertia = base_inertia + (float(scoop_count) * 0.18)
-	var com_height_factor = 1.0 + (float(scoop_count) * 0.14)
+	# Tall towers accumulate more inertia and have a higher center of mass.
+	# Keep the progression continuous at eight scoops instead of a sudden difficulty jump.
+	var tower_excess: float = maxf(0.0, float(scoop_count - 7))
+	var moment_of_inertia: float = base_inertia + float(scoop_count) * 0.18 + tower_excess * tower_excess * 0.035
+	var com_height_factor: float = 1.0 + float(scoop_count) * 0.14 + tower_excess * 0.045
 	
 	var gravity_torque = sin(deg_to_rad(current_angle_deg)) * (10.0 + float(scoop_count) * 3.8) * com_height_factor
 	var gentle_sway = sin(_physics_time * 2.2) * (0.35 + float(scoop_count) * 0.22)
@@ -190,7 +222,8 @@ func _simulate_scoops_secondary_motion(delta: float) -> void:
 	for i in range(count):
 		# Kule uzadıkça üstteki toplar komik bir dalga halinde gecikmeli kıvrılır
 		var target_angle = prev_angle * 1.12 + sin(_physics_time * 3.0 + float(i) * 0.8) * (1.2 + float(i) * 0.4)
-		_scoop_angles[i] = lerpf(_scoop_angles[i], target_angle, (18.0 - float(i) * 0.8) * delta)
+		var response_rate: float = maxf(3.0, 18.0 - float(i) * 0.8)
+		_scoop_angles[i] = lerpf(_scoop_angles[i], target_angle, 1.0 - exp(-response_rate * delta))
 		prev_angle = _scoop_angles[i]
 		
 		var spring_force = -_scoop_offsets[i] * scoop_spring_stiffness
@@ -206,7 +239,7 @@ func _update_visual_tilt(delta: float) -> void:
 		return
 		
 	if not is_flipping:
-		cone_pivot.rotation.z = -deg_to_rad(current_angle_deg)
+		cone_pivot.rotation.z = -deg_to_rad(current_angle_deg + _catch_recoil)
 	
 	# Absürt Kule Yüksekliğini Ekrana Sığdırma (Dynamic Lowering)
 	var scoop_count = stacked_flavors.size()
@@ -223,6 +256,9 @@ func _update_visual_tilt(delta: float) -> void:
 	if not _is_disposing:
 		cone_pivot.position.x = sin(_physics_time * 43.0) * shake_amplitude
 		cone_pivot.position.z = -0.05 + cos(_physics_time * 37.0) * shake_amplitude
+		# Subtle visual load compression; does not change the physical tilt threshold.
+		var load_scale: float = 1.0 - minf(float(scoop_count) * 0.006, 0.06)
+		cone_pivot.scale.y = lerpf(cone_pivot.scale.y, load_scale, 1.0 - exp(-7.0 * delta))
 	
 	var children = scoop_container.get_children()
 	var base_y = stack_marker.position.y if stack_marker else 0.14
@@ -548,9 +584,11 @@ func perform_trick() -> bool:
 	is_performing_trick = true
 	_emit_busy()
 	EventBus.show_started.emit("tease")
-	var forward_pos = _base_local_pos + Vector3(0.08, 0.04, -0.36)
-	var hide_pos = _base_local_pos + Vector3(-0.16, -0.06, 0.22)
-	var hide_rot = Vector3(deg_to_rad(12.0), deg_to_rad(35.0), -deg_to_rad(15.0))
+	_tease_variant = (_tease_variant + 1) % 3
+	var side: float = -1.0 if _tease_variant == 1 else 1.0
+	var forward_pos: Vector3 = _base_local_pos + Vector3(side * 0.08, 0.04, -0.36)
+	var hide_pos: Vector3 = _base_local_pos + Vector3(-side * 0.16, -0.06, 0.22)
+	var hide_rot: Vector3 = Vector3(deg_to_rad(12.0), deg_to_rad(side * 35.0), -deg_to_rad(side * 15.0))
 	
 	var tween = create_tween().set_trans(Tween.TRANS_CUBIC)
 	_show_tween = tween
@@ -671,8 +709,9 @@ func _clutch_recover() -> void:
 		return
 	is_clutch_active = false
 	_clutch_timer = 0.0
-	angular_velocity = -_clutch_fall_dir * 42.0
-	current_angle_deg = move_toward(current_angle_deg, 0.0, 20.0)
+	angular_velocity = -_clutch_fall_dir * 30.0
+	current_angle_deg = _clutch_fall_dir * minf(absf(current_angle_deg), get_safe_angle() * 0.38)
+	_catch_recoil = _clutch_fall_dir * 9.0
 	_emit_busy()
 	EventBus.clutch_catch_succeeded.emit()
 	EventBus.show_completed.emit("catch")
